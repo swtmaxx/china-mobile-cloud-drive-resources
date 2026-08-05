@@ -1,7 +1,8 @@
 import { base64UrlDecode, base64UrlEncode } from "../139/crypto";
 
 const HASH_ALGORITHM = "pbkdf2-sha256";
-const DEFAULT_ITERATIONS = 210_000;
+// Keep password changes within the CPU budget of Cloudflare Pages Functions.
+const DEFAULT_ITERATIONS = 100_000;
 const SALT_BYTES = 16;
 const HASH_BYTES = 32;
 

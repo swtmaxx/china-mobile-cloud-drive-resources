@@ -80,6 +80,7 @@ describe("admin session and provider APIs", () => {
     expect(loggedIn.headers.get("Set-Cookie")).toContain("HttpOnly");
     expect(loggedIn.headers.get("Set-Cookie")).toContain("Secure");
     expect(loggedIn.headers.get("Set-Cookie")).toContain("SameSite=Lax");
+    expect(values.has(ADMIN_PASSWORD_KEY)).toBe(false);
     const cookie = cookieFrom(loggedIn);
     const sessionPayload = await loggedIn.json() as { csrfToken: string };
     expect(sessionPayload.csrfToken).toBeTruthy();
@@ -107,6 +108,7 @@ describe("admin session and provider APIs", () => {
 
     const passwordResponse = await changePassword(context(new Request("https://example.test/api/admin/account/password", { method: "POST", body: JSON.stringify({ currentPassword: env.ADMIN_PASSWORD, newPassword: "rotated-admin-password" }), headers: { Cookie: cookie, "X-CSRF-Token": sessionPayload.csrfToken, "Content-Type": "application/json" } }), env));
     expect(passwordResponse.status).toBe(200);
+    expect(values.get(ADMIN_PASSWORD_KEY)).toMatch(/^\{"hash":"pbkdf2-sha256\$100000\$/);
     const rotatedCookie = cookieFrom(passwordResponse);
     const oldSession = await getSession(context(new Request(url, { headers: { Cookie: cookie } }), env));
     expect(oldSession.status).toBe(401);

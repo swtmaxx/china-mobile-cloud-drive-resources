@@ -2,6 +2,7 @@ import type { Env } from "./env";
 import { parseAuthorization, Yun139Client, ProviderError, sessionFromAuthorization } from "./139/client";
 import type { SessionState } from "./139/types";
 import { decryptSecret, encryptSecret } from "./security/secrets";
+import { decodeKeyBytes } from "./security/keys";
 import { providerEnv } from "./provider-config";
 
 const SESSION_KEY = "session:139:personal-new";
@@ -10,6 +11,11 @@ let inFlight: Promise<SessionState> | undefined;
 function encryptionKey(env: Env): string {
   if (!env.AUTH_ENCRYPTION_KEY) {
     throw new ProviderError("AUTH_ENCRYPTION_KEY is not configured", 503, "server_misconfigured");
+  }
+  try {
+    decodeKeyBytes(env.AUTH_ENCRYPTION_KEY, "AUTH_ENCRYPTION_KEY");
+  } catch {
+    throw new ProviderError("AUTH_ENCRYPTION_KEY is invalid", 503, "server_misconfigured");
   }
   return env.AUTH_ENCRYPTION_KEY;
 }
@@ -47,6 +53,9 @@ function canUse(session: SessionState): boolean {
 
 async function ensureSessionInternal(env: Env): Promise<SessionState> {
   const configuredEnv = await providerEnv(env);
+  if (configuredEnv.AUTH_ENCRYPTION_KEY) {
+    encryptionKey(configuredEnv);
+  }
   const stored = await readStoredSession(configuredEnv);
   const configuredAuthorization = configuredEnv.YUN139_AUTHORIZATION?.trim();
   if (configuredAuthorization) {

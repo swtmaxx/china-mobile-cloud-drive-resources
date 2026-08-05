@@ -140,7 +140,7 @@ KV 中保存的是 AES-256-GCM 加密后的 139 Authorization，以及自动登�
 
 MailCookies 本身无法由 139 token 自动续期。MailCookies 过期时，需要重新获取并在后台更新。后台只返回账号掩码、是否已配置和 Authorization 过期状态，不返回密码、Cookie 或 Authorization。日志不会输出密码、Cookie、Authorization、token 或解密后的登录响应。
 
-管理员密码首次成功登录后会以 PBKDF2-SHA256 加盐哈希保存到 KV，之后以 KV 哈希为准。管理员配置、139 凭据和资源显示规则使用 `ADMIN_DATA_KEY` 加密。修改云盘配置会清除旧的 139 会话；修改资源规则会递增规则版本，让新的公开目录缓存立即使用最新显示状态。
+管理员首次登录使用 `ADMIN_PASSWORD` Secret 校验，不会在登录请求中执行密码哈希；管理员修改密码时会以 PBKDF2-SHA256 加盐哈希保存到 KV，之后以 KV 哈希为准。管理员配置、139 凭据和资源显示规则使用 `ADMIN_DATA_KEY` 加密。修改云盘配置会清除旧的 139 会话；修改资源规则会递增规则版本，让新的公开目录缓存立即使用最新显示状态。
 
 使用 GitHub 自动部署时，生产环境变量和 Secrets 应配置在 Cloudflare Pages 项目的 `Settings` → `Variables and Secrets` 中。修改 Pages 变量后需要重新部署才会应用到 Functions。使用 `npm run cf:dev` 本地开发时，Wrangler 会使用本地 KV 模拟绑定，不依赖生产配置文件。
 

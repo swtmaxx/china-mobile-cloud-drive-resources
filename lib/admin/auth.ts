@@ -219,7 +219,13 @@ async function readPasswordRecord(env: Env): Promise<PasswordRecord | null> {
 }
 
 async function writePasswordHash(env: Env, password: string): Promise<void> {
-  await env.RESOURCE_KV.put(ADMIN_PASSWORD_KEY, JSON.stringify({ hash: await hashPassword(password), updatedAt: Date.now() }));
+  try {
+    const hash = await hashPassword(password);
+    await env.RESOURCE_KV.put(ADMIN_PASSWORD_KEY, JSON.stringify({ hash, updatedAt: Date.now() }));
+  } catch (error) {
+    console.error(`[resource-hub] admin password hash failed: ${error instanceof Error ? error.message : "unknown error"}`);
+    throw new AdminError("管理员密码哈希生成失败，请稍后重试。", 503, "admin_password_hash_failed");
+  }
 }
 
 async function passwordMatches(env: Env, password: string): Promise<{ matched: boolean; stored: boolean; legacyEncrypted: boolean }> {
@@ -250,9 +256,6 @@ export async function loginAdmin(env: Env, request: Request, password: string): 
     throw error;
   }
   await clearLoginFailures(env, request);
-  if (!result.stored || result.legacyEncrypted) {
-    await writePasswordHash(env, password);
-  }
   const created = await createAdminSession(env);
   return {
     cookie: adminCookieHeader(request, created.value),
