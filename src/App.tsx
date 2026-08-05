@@ -10,6 +10,7 @@ import {
   RefreshCw,
   X,
 } from "lucide-react";
+import { defaultSiteSettings, normalizeSiteSettings, renderMarkdown, SiteSettings } from "./site-settings";
 
 interface ResourceItem {
   handle: string;
@@ -40,8 +41,6 @@ interface TrailItem {
   handle: string;
   name: string;
 }
-
-const siteName = import.meta.env.VITE_SITE_NAME || "资源分发站";
 
 function readDirectory(): string {
   return new URLSearchParams(window.location.search).get("dir") || "root";
@@ -97,6 +96,7 @@ function errorMessage(payload: ApiErrorPayload | null, fallback: string): string
 
 function App() {
   const [directory, setDirectory] = useState(readDirectory);
+  const [siteSettings, setSiteSettings] = useState<SiteSettings>(defaultSiteSettings);
   const [rootName, setRootName] = useState("资源根目录");
   const [trail, setTrail] = useState<TrailItem[]>([{ handle: "root", name: "资源根目录" }]);
   const [data, setData] = useState<DirectoryResponse | null>(null);
@@ -105,6 +105,32 @@ function App() {
   const [error, setError] = useState("暂时无法读取资源目录。");
   const activeRequest = useRef<AbortController | null>(null);
   const requestSequence = useRef(0);
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/site-settings", { headers: { Accept: "application/json" } })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error("site settings unavailable");
+        }
+        return response.json() as Promise<unknown>;
+      })
+      .then((payload) => {
+        if (active) {
+          setSiteSettings(normalizeSiteSettings(payload));
+        }
+      })
+      .catch(() => {
+        // Keep the directory usable when the optional settings endpoint is unavailable.
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    document.title = siteSettings.siteName;
+  }, [siteSettings.siteName]);
 
   const loadDirectory = useCallback(async (handle: string) => {
     const sequence = requestSequence.current + 1;
@@ -247,7 +273,7 @@ function App() {
         <div className="topbar-inner">
           <a className="brand" href="/" onClick={(event) => { event.preventDefault(); navigate("root"); }}>
             <span className="brand-mark"><HardDriveDownload size={19} strokeWidth={2.2} /></span>
-            <span>{siteName}</span>
+            <span>{siteSettings.siteName}</span>
           </a>
           <div className="topbar-status"><span className="status-dot" />在线资源</div>
         </div>
@@ -257,13 +283,20 @@ function App() {
         <section className="intro-band">
           <div>
             <p className="eyebrow">RESOURCE LIBRARY</p>
-            <h1>找到你需要的资源</h1>
-            <p className="intro-copy">按目录浏览公开资源，文件下载由云端直连。</p>
+            <h1>{siteSettings.headerTitle}</h1>
+            <p className="intro-copy">{siteSettings.headerSubtitle}</p>
           </div>
           <button className="icon-button" type="button" onClick={() => void loadDirectory(directory)} title="刷新目录" aria-label="刷新目录">
             <RefreshCw size={18} className={status === "loading" ? "spin" : ""} />
           </button>
         </section>
+
+        {siteSettings.markdown.trim() && (
+          <article
+            className="markdown-content"
+            dangerouslySetInnerHTML={{ __html: renderMarkdown(siteSettings.markdown) }}
+          />
+        )}
 
         <section className="workspace" aria-label="资源目录">
           <div className="toolbar">

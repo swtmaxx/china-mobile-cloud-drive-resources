@@ -6,12 +6,14 @@ import {
   Eye,
   EyeOff,
   File,
+  FileText,
   Folder,
   HardDriveDownload,
   Home,
   KeyRound,
   LogIn,
   LogOut,
+  Palette,
   RefreshCw,
   Save,
   Server,
@@ -20,6 +22,7 @@ import {
   UserRound,
   Wifi,
 } from "lucide-react";
+import { defaultSiteSettings, normalizeSiteSettings, renderMarkdown, SiteSettings } from "./site-settings";
 
 interface ApiErrorPayload {
   error?: string;
@@ -172,6 +175,8 @@ function AdminApp() {
   const [providerBusy, setProviderBusy] = useState<"save" | "test" | "clear" | null>(null);
   const [passwordBusy, setPasswordBusy] = useState(false);
   const [passwordValues, setPasswordValues] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
+  const [siteSettings, setSiteSettings] = useState<SiteSettings>(defaultSiteSettings);
+  const [siteSettingsBusy, setSiteSettingsBusy] = useState<"load" | "save" | null>(null);
   const [resourceDirectory, setResourceDirectory] = useState<ResourceDirectory | null>(null);
   const [resourceTrail, setResourceTrail] = useState<TrailItem[]>([{ handle: "root", name: "资源根目录" }]);
   const [resourceBusy, setResourceBusy] = useState(false);
@@ -186,6 +191,7 @@ function AdminApp() {
     setSession(null);
     setAuthStatus("login");
     setProvider(null);
+    setSiteSettings(defaultSiteSettings);
     setResourceDirectory(null);
     showNotice("error", "后台会话已失效，请重新登录。");
   }, [showNotice]);
@@ -216,6 +222,16 @@ function AdminApp() {
     const payload = await request<ProviderStatus>("/api/admin/provider");
     setProvider(payload);
     setProviderValues((previous) => ({ ...previous, type: payload.type, rootId: payload.rootId }));
+  }, [request]);
+
+  const loadSiteSettings = useCallback(async () => {
+    setSiteSettingsBusy("load");
+    try {
+      const payload = await request<SiteSettings>("/api/admin/site-settings");
+      setSiteSettings(normalizeSiteSettings(payload));
+    } finally {
+      setSiteSettingsBusy(null);
+    }
   }, [request]);
 
   const loadResources = useCallback(async (handle: string) => {
@@ -270,12 +286,12 @@ function AdminApp() {
     if (authStatus !== "ready" || !session) {
       return;
     }
-    void Promise.all([loadProvider(), loadResources("root")]).catch((error) => {
+    void Promise.all([loadProvider(), loadSiteSettings(), loadResources("root")]).catch((error) => {
       if (!(error instanceof SessionExpiredError)) {
         showNotice("error", error instanceof Error ? error.message : "后台数据读取失败。");
       }
     });
-  }, [authStatus, loadProvider, loadResources, session, showNotice]);
+  }, [authStatus, loadProvider, loadResources, loadSiteSettings, session, showNotice]);
 
   async function loginComplete(nextSession: SessionInfo) {
     setSession(nextSession);
@@ -294,6 +310,7 @@ function AdminApp() {
       setSession(null);
       setAuthStatus("login");
       setProvider(null);
+      setSiteSettings(defaultSiteSettings);
       setResourceDirectory(null);
     }
   }
@@ -319,6 +336,30 @@ function AdminApp() {
       }
     } finally {
       setPasswordBusy(false);
+    }
+  }
+
+  async function saveSiteSettings(event: FormEvent) {
+    event.preventDefault();
+    setSiteSettingsBusy("save");
+    try {
+      const payload = await request<SiteSettings>("/api/admin/site-settings", {
+        method: "PATCH",
+        body: JSON.stringify({
+          siteName: siteSettings.siteName,
+          headerTitle: siteSettings.headerTitle,
+          headerSubtitle: siteSettings.headerSubtitle,
+          markdown: siteSettings.markdown,
+        }),
+      });
+      setSiteSettings(normalizeSiteSettings(payload));
+      showNotice("success", "个性化设置已保存，公开首页会立即更新。");
+    } catch (error) {
+      if (!(error instanceof SessionExpiredError)) {
+        showNotice("error", error instanceof Error ? error.message : "个性化设置保存失败。");
+      }
+    } finally {
+      setSiteSettingsBusy(null);
     }
   }
 
@@ -454,6 +495,25 @@ function AdminApp() {
           <div className="admin-two-column">
             <div className="admin-status-block"><div className="admin-status-label"><UserRound size={17} />当前账号</div><strong>admin</strong><span className="admin-muted">单管理员模式</span><div className="admin-status-line"><ShieldCheck size={15} />密码已配置</div></div>
             <form className="admin-form admin-compact-form" onSubmit={savePassword}><h3>修改密码</h3><div className="admin-form-grid"><label className="admin-field"><span>当前密码</span><input type="password" value={passwordValues.currentPassword} onChange={(event) => setPasswordValues((value) => ({ ...value, currentPassword: event.target.value }))} autoComplete="current-password" required /></label><label className="admin-field"><span>新密码</span><input type="password" value={passwordValues.newPassword} onChange={(event) => setPasswordValues((value) => ({ ...value, newPassword: event.target.value }))} autoComplete="new-password" minLength={8} required /></label><label className="admin-field"><span>确认新密码</span><input type="password" value={passwordValues.confirmPassword} onChange={(event) => setPasswordValues((value) => ({ ...value, confirmPassword: event.target.value }))} autoComplete="new-password" minLength={8} required /></label></div><button className="admin-button primary" type="submit" disabled={passwordBusy}>{passwordBusy ? <RefreshCw size={16} className="spin" /> : <Save size={16} />}保存新密码</button></form>
+          </div>
+        </section>
+
+        <section className="admin-section personalization-section" aria-labelledby="personalization-heading">
+          <div className="admin-section-heading"><div className="admin-section-icon personalization"><Palette size={19} /></div><div><p className="admin-kicker">PUBLIC APPEARANCE</p><h2 id="personalization-heading">个性化设置</h2></div></div>
+          <div className="admin-personalization-layout">
+            <form className="admin-form" onSubmit={saveSiteSettings}>
+              <div className="admin-form-grid">
+                <label className="admin-field"><span>站点名称</span><input value={siteSettings.siteName} onChange={(event) => setSiteSettings((value) => ({ ...value, siteName: event.target.value }))} maxLength={256} required /></label>
+                <label className="admin-field"><span>头部标题</span><input value={siteSettings.headerTitle} onChange={(event) => setSiteSettings((value) => ({ ...value, headerTitle: event.target.value }))} maxLength={256} required /></label>
+                <label className="admin-field wide-field"><span>头部说明</span><input value={siteSettings.headerSubtitle} onChange={(event) => setSiteSettings((value) => ({ ...value, headerSubtitle: event.target.value }))} maxLength={256} required /></label>
+              </div>
+              <label className="admin-field"><span>Markdown 内容</span><textarea value={siteSettings.markdown} onChange={(event) => setSiteSettings((value) => ({ ...value, markdown: event.target.value }))} maxLength={100000} rows={14} placeholder="可填写站点公告、使用说明或其他公开内容" /></label>
+              <div className="admin-form-actions"><span className="admin-muted">内容会显示在公开首页的资源目录上方。</span><button className="admin-button primary" type="submit" disabled={siteSettingsBusy !== null}>{siteSettingsBusy === "save" ? <RefreshCw size={16} className="spin" /> : <Save size={16} />}保存个性化设置</button></div>
+            </form>
+            <div className="admin-markdown-preview-panel">
+              <div className="admin-markdown-preview-heading"><FileText size={17} /><strong>Markdown 预览</strong><span className="admin-muted">实时</span></div>
+              {siteSettings.markdown.trim() ? <article className="markdown-content admin-markdown-preview" dangerouslySetInnerHTML={{ __html: renderMarkdown(siteSettings.markdown) }} /> : <div className="admin-markdown-empty">输入 Markdown 后，这里会显示公开页面效果。</div>}
+            </div>
           </div>
         </section>
 

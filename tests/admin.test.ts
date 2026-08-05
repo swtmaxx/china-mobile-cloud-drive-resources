@@ -9,11 +9,13 @@ import { encryptSecret } from "../lib/security/secrets";
 import { onRequestGet as getPublicDirectory } from "../functions/api/resources";
 import { onRequestGet as getDownload } from "../functions/api/download";
 import { onRequestGet as getAdminResources, onRequestPatch as patchAdminResources } from "../functions/api/admin/resources";
+import { onRequestGet as getAdminSiteSettings, onRequestPatch as patchAdminSiteSettings } from "../functions/api/admin/site-settings";
+import { onRequestGet as getSiteSettings } from "../functions/api/site-settings";
 import { createResourceHandle, verifyResourceHandle } from "../lib/security/handles";
 import { readResourceRules, updateResourceRule } from "../lib/resource-rules";
 import { isResourceVisible, publicCacheKey } from "../lib/resources";
 import { readDisplayRoot } from "../lib/display-root";
-import { ADMIN_DISPLAY_ROOT_KEY, DISPLAY_ROOT_VERSION_KEY } from "../lib/admin/storage";
+import { ADMIN_DISPLAY_ROOT_KEY, ADMIN_SITE_SETTINGS_KEY, DISPLAY_ROOT_VERSION_KEY } from "../lib/admin/storage";
 
 const KEY_A = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
 const KEY_B = "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB";
@@ -289,5 +291,83 @@ describe("resource visibility rules", () => {
     } finally {
       fetchMock.mockRestore();
     }
+  });
+});
+
+describe("site personalization APIs", () => {
+  it("returns defaults publicly and protects the admin settings endpoint", async () => {
+    const { kv } = makeKv();
+    const env = envWith(kv);
+
+    const publicResponse = await getSiteSettings(context(new Request("https://example.test/api/site-settings"), env));
+    expect(publicResponse.status).toBe(200);
+    expect(await publicResponse.json()).toMatchObject({
+      siteName: "资源分发站",
+      headerTitle: "找到你需要的资源",
+      headerSubtitle: "按目录浏览公开资源，文件下载由云端直连。",
+      markdown: "",
+      version: 0,
+    });
+
+    const privateResponse = await getAdminSiteSettings(context(new Request("https://example.test/api/admin/site-settings"), env));
+    expect(privateResponse.status).toBe(401);
+  });
+
+  it("requires CSRF, encrypts saved content, and publishes the settings", async () => {
+    const { kv, values } = makeKv();
+    const env = envWith(kv);
+    const login = await postSession(context(new Request("https://example.test/api/admin/session", {
+      method: "POST",
+      body: JSON.stringify({ password: env.ADMIN_PASSWORD }),
+      headers: { "Content-Type": "application/json" },
+    }), env));
+    const cookie = cookieFrom(login);
+    const loginBody = await login.json() as { csrfToken: string };
+    const settings = {
+      siteName: "移动云盘资源中心",
+      headerTitle: "精选资源下载",
+      headerSubtitle: "欢迎浏览最新公开内容。",
+      markdown: "## 公告\n\n请先阅读 [使用说明](https://example.test/guide)。\n\n<script>alert('xss')</script>",
+    };
+
+    const csrfMissing = await patchAdminSiteSettings(context(new Request("https://example.test/api/admin/site-settings", {
+      method: "PATCH",
+      body: JSON.stringify(settings),
+      headers: { Cookie: cookie, "Content-Type": "application/json" },
+    }), env));
+    expect(csrfMissing.status).toBe(403);
+
+    const saved = await patchAdminSiteSettings(context(new Request("https://example.test/api/admin/site-settings", {
+      method: "PATCH",
+      body: JSON.stringify(settings),
+      headers: { Cookie: cookie, "X-CSRF-Token": loginBody.csrfToken, "Content-Type": "application/json" },
+    }), env));
+    expect(saved.status).toBe(200);
+    const stored = values.get(ADMIN_SITE_SETTINGS_KEY) || "";
+    expect(stored).not.toContain(settings.siteName);
+    expect(stored).not.toContain(settings.markdown);
+
+    const adminBody = await saved.json() as typeof settings & { version: number };
+    expect(adminBody).toMatchObject({ ...settings, version: 1 });
+    const publicBody = await (await getSiteSettings(context(new Request("https://example.test/api/site-settings"), env))).json();
+    expect(publicBody).toMatchObject({ ...settings, version: 1 });
+  });
+
+  it("rejects overlong personalization fields", async () => {
+    const { kv } = makeKv();
+    const env = envWith(kv);
+    const login = await postSession(context(new Request("https://example.test/api/admin/session", {
+      method: "POST",
+      body: JSON.stringify({ password: env.ADMIN_PASSWORD }),
+      headers: { "Content-Type": "application/json" },
+    }), env));
+    const cookie = cookieFrom(login);
+    const loginBody = await login.json() as { csrfToken: string };
+    const response = await patchAdminSiteSettings(context(new Request("https://example.test/api/admin/site-settings", {
+      method: "PATCH",
+      body: JSON.stringify({ siteName: "x".repeat(257) }),
+      headers: { Cookie: cookie, "X-CSRF-Token": loginBody.csrfToken, "Content-Type": "application/json" },
+    }), env));
+    expect(response.status).toBe(400);
   });
 });

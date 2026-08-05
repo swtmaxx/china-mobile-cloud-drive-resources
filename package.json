@@ -14,8 +14,10 @@
   },
   "dependencies": {
     "crypto-js": "^4.2.0",
+    "dompurify": "^3.4.13",
     "fast-xml-parser": "^5.2.5",
     "lucide-react": "^0.468.0",
+    "marked": "^18.0.9",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },

@@ -7,10 +7,12 @@ export const ADMIN_PASSWORD_KEY = "admin:password";
 export const ADMIN_PROVIDER_KEY = "admin:provider";
 export const ADMIN_RESOURCE_RULES_KEY = "admin:resource-rules";
 export const ADMIN_DISPLAY_ROOT_KEY = "admin:display-root";
+export const ADMIN_SITE_SETTINGS_KEY = "admin:site-settings";
 export const ADMIN_SESSION_VERSION_KEY = "admin:session-version";
 export const RESOURCE_RULES_VERSION_KEY = "resource-rules:version";
 export const PROVIDER_CONFIG_VERSION_KEY = "provider-config:version";
 export const DISPLAY_ROOT_VERSION_KEY = "display-root:version";
+export const SITE_SETTINGS_VERSION_KEY = "site-settings:version";
 
 export function requireAdminDataKey(env: Env): string {
   if (!env.ADMIN_DATA_KEY) {
