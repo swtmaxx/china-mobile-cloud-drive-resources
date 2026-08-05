@@ -5,9 +5,3 @@ pages_build_output_dir = "dist"
 [[kv_namespaces]]
 binding = "RESOURCE_KV"
 id = "07923bb0b3734545a9295cb99ff2d205"
-
-[vars]
-YUN139_TYPE = "personal_new"
-YUN139_ROOT_ID = "/"
-RESOURCE_HANDLE_TTL = "86400"
-RESOURCE_CACHE_TTL = "60"
