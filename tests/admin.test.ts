@@ -310,6 +310,10 @@ describe("site personalization APIs", () => {
       markdown: "",
       customHead: "",
       customContent: "",
+      themeMode: "system",
+      faviconUrl: "",
+      backgroundUrl: "",
+      darkBackgroundUrl: "",
       version: 0,
     });
 
@@ -334,6 +338,10 @@ describe("site personalization APIs", () => {
       markdown: "## 公告\n\n请先阅读 [使用说明](https://example.test/guide)。\n\n<script>alert('xss')</script>",
       customHead: '<script async src="//example.test/counter.js"></script>',
       customContent: '<div id="customize" style="display:none"><span id="counter"></span></div>',
+      themeMode: "dark",
+      faviconUrl: "https://example.test/favicon.png",
+      backgroundUrl: "https://example.test/light.webp",
+      darkBackgroundUrl: "https://example.test/dark.webp",
     };
 
     const csrfMissing = await patchAdminSiteSettings(context(new Request("https://example.test/api/admin/site-settings", {
@@ -384,5 +392,19 @@ describe("site personalization APIs", () => {
       headers: { Cookie: cookie, "X-CSRF-Token": loginBody.csrfToken, "Content-Type": "application/json" },
     }), env));
     expect(markupResponse.status).toBe(400);
+
+    const invalidUrlResponse = await patchAdminSiteSettings(context(new Request("https://example.test/api/admin/site-settings", {
+      method: "PATCH",
+      body: JSON.stringify({ faviconUrl: "javascript:alert(1)" }),
+      headers: { Cookie: cookie, "X-CSRF-Token": loginBody.csrfToken, "Content-Type": "application/json" },
+    }), env));
+    expect(invalidUrlResponse.status).toBe(400);
+
+    const invalidThemeResponse = await patchAdminSiteSettings(context(new Request("https://example.test/api/admin/site-settings", {
+      method: "PATCH",
+      body: JSON.stringify({ themeMode: "blue" }),
+      headers: { Cookie: cookie, "X-CSRF-Token": loginBody.csrfToken, "Content-Type": "application/json" },
+    }), env));
+    expect(invalidThemeResponse.status).toBe(400);
   });
 });

@@ -1,6 +1,8 @@
 import DOMPurify from "dompurify";
 import { marked } from "marked";
 
+export type ThemeMode = "system" | "light" | "dark";
+
 export interface SiteSettings {
   siteName: string;
   headerTitle: string;
@@ -8,6 +10,10 @@ export interface SiteSettings {
   markdown: string;
   customHead: string;
   customContent: string;
+  themeMode: ThemeMode;
+  faviconUrl: string;
+  backgroundUrl: string;
+  darkBackgroundUrl: string;
   updatedAt?: number;
   version?: number;
 }
@@ -19,10 +25,26 @@ export const defaultSiteSettings: SiteSettings = {
   markdown: "",
   customHead: "",
   customContent: "",
+  themeMode: "system",
+  faviconUrl: "",
+  backgroundUrl: "",
+  darkBackgroundUrl: "",
 };
 
 function textOrFallback(value: unknown, fallback: string): string {
   return typeof value === "string" && value.trim() ? value.trim() : fallback;
+}
+
+function normalizeUrl(value: unknown): string {
+  if (typeof value !== "string" || !value.trim()) {
+    return "";
+  }
+  try {
+    const url = new URL(value.trim());
+    return url.protocol === "http:" || url.protocol === "https:" ? url.href : "";
+  } catch {
+    return "";
+  }
 }
 
 export function normalizeSiteSettings(value: unknown): SiteSettings {
@@ -34,6 +56,10 @@ export function normalizeSiteSettings(value: unknown): SiteSettings {
     markdown: typeof input.markdown === "string" ? input.markdown : defaultSiteSettings.markdown,
     customHead: typeof input.customHead === "string" ? input.customHead : defaultSiteSettings.customHead,
     customContent: typeof input.customContent === "string" ? input.customContent : defaultSiteSettings.customContent,
+    themeMode: input.themeMode === "light" || input.themeMode === "dark" ? input.themeMode : defaultSiteSettings.themeMode,
+    faviconUrl: normalizeUrl(input.faviconUrl),
+    backgroundUrl: normalizeUrl(input.backgroundUrl),
+    darkBackgroundUrl: normalizeUrl(input.darkBackgroundUrl),
     ...(typeof input.updatedAt === "number" ? { updatedAt: input.updatedAt } : {}),
     ...(typeof input.version === "number" ? { version: input.version } : {}),
   };

@@ -7,10 +7,12 @@ import {
   File,
   Folder,
   HardDriveDownload,
+  Moon,
   RefreshCw,
+  Sun,
   X,
 } from "lucide-react";
-import { defaultSiteSettings, normalizeSiteSettings, renderMarkdown, SiteSettings } from "./site-settings";
+import { defaultSiteSettings, normalizeSiteSettings, renderMarkdown, SiteSettings, ThemeMode } from "./site-settings";
 
 interface ResourceItem {
   handle: string;
@@ -40,6 +42,37 @@ interface ApiErrorPayload {
 interface TrailItem {
   handle: string;
   name: string;
+}
+
+type ResolvedTheme = "light" | "dark";
+
+const THEME_OVERRIDE_KEY = "resource-hub-theme";
+
+function readThemeOverride(): ResolvedTheme | null {
+  try {
+    const value = window.localStorage.getItem(THEME_OVERRIDE_KEY);
+    return value === "light" || value === "dark" ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function readSystemTheme(): ResolvedTheme {
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+function resolveTheme(mode: ThemeMode, systemTheme: ResolvedTheme, override: ResolvedTheme | null): ResolvedTheme {
+  if (override) {
+    return override;
+  }
+  return mode === "system" ? systemTheme : mode;
+}
+
+function cssBackgroundImage(url: string): string {
+  if (!url) {
+    return "none";
+  }
+  return `url("${url}")`;
 }
 
 function readDirectory(): string {
@@ -158,6 +191,55 @@ function App() {
   const [error, setError] = useState("暂时无法读取资源目录。");
   const activeRequest = useRef<AbortController | null>(null);
   const requestSequence = useRef(0);
+  const [themeOverride, setThemeOverride] = useState<ResolvedTheme | null>(readThemeOverride);
+  const [systemTheme, setSystemTheme] = useState<ResolvedTheme>(readSystemTheme);
+  const resolvedTheme = resolveTheme(siteSettings.themeMode, systemTheme, themeOverride);
+
+  useEffect(() => {
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const update = () => setSystemTheme(media.matches ? "dark" : "light");
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    root.dataset.theme = resolvedTheme;
+    const background = resolvedTheme === "dark"
+      ? siteSettings.darkBackgroundUrl || siteSettings.backgroundUrl
+      : siteSettings.backgroundUrl || siteSettings.darkBackgroundUrl;
+    root.style.setProperty("--site-background-image", cssBackgroundImage(background));
+    return () => {
+      delete root.dataset.theme;
+      root.style.removeProperty("--site-background-image");
+    };
+  }, [resolvedTheme, siteSettings.backgroundUrl, siteSettings.darkBackgroundUrl]);
+
+  useEffect(() => {
+    const links = Array.from(document.head.querySelectorAll<HTMLLinkElement>("link[data-resource-hub-favicon]"));
+    links.forEach((link) => link.remove());
+    if (!siteSettings.faviconUrl) {
+      return undefined;
+    }
+    const link = document.createElement("link");
+    link.rel = "icon";
+    link.href = siteSettings.faviconUrl;
+    link.dataset.resourceHubFavicon = "true";
+    document.head.appendChild(link);
+    return () => {
+      link.remove();
+    };
+  }, [siteSettings.faviconUrl]);
+
+  function toggleTheme() {
+    const nextTheme: ResolvedTheme = resolvedTheme === "dark" ? "light" : "dark";
+    setThemeOverride(nextTheme);
+    try {
+      window.localStorage.setItem(THEME_OVERRIDE_KEY, nextTheme);
+    } catch {
+      // Continue without persistence when browser storage is unavailable.
+    }
+  }
 
   useEffect(() => {
     let active = true;
@@ -329,7 +411,18 @@ function App() {
             <span className="brand-mark"><HardDriveDownload size={19} strokeWidth={2.2} /></span>
             <span>{siteSettings.siteName}</span>
           </a>
-          <div className="topbar-status"><span className="status-dot" />在线资源</div>
+          <div className="topbar-actions">
+            <div className="topbar-status"><span className="status-dot" />在线资源</div>
+            <button
+              className="icon-button theme-toggle"
+              type="button"
+              onClick={toggleTheme}
+              title={resolvedTheme === "dark" ? "切换浅色模式" : "切换深色模式"}
+              aria-label={resolvedTheme === "dark" ? "切换浅色模式" : "切换深色模式"}
+            >
+              {resolvedTheme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
+          </div>
         </div>
       </header>
 
