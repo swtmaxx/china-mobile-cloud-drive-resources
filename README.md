@@ -47,9 +47,8 @@ npm run build
 npx wrangler kv namespace create RESOURCE_KV
 ```
 
-3. 将命令输出的 namespace ID 写入 `wrangler.toml` 的 `RESOURCE_KV` 配置。
-4. 在 Pages 项目中绑定同名 KV：`RESOURCE_KV`。
-5. 配置以下环境变量。密码、Cookie 和密钥必须使用 Secret，不要写入仓库：
+3. 在 Pages 项目的 `Settings` → `Functions` → KV namespace bindings 中绑定该 namespace，绑定名称必须是 `RESOURCE_KV`。
+4. 配置以下环境变量。密码、Cookie 和密钥必须使用 Secret，不要写入仓库：
 
 ```text
 YUN139_USERNAME
@@ -95,7 +94,7 @@ Production branch: main
 
 在 Pages 项目的 Production 环境中绑定 KV namespace `RESOURCE_KV`，并分别配置上述变量和 Secret。Preview 环境应使用独立 KV namespace、`AUTH_ENCRYPTION_KEY`、`RESOURCE_HANDLE_KEY`、`ADMIN_SESSION_KEY` 和 `ADMIN_DATA_KEY`，避免预览环境读写生产会话或配置。
 
-仓库中的 `wrangler.toml` 不包含 `pages_build_output_dir`，只用于本地 Wrangler 的 KV 绑定。这样 Pages 的生产配置源保持在控制台，自动部署不会用仓库配置覆盖 `Variables and Secrets`。不要在该文件中重新加入 `pages_build_output_dir` 或 `[vars]`；请在 Pages 的构建设置中配置 `npm run build` 和 `dist`，并在控制台配置 Production 变量。
+仓库不提交 `wrangler.toml`，让 Pages 的生产配置源保持在控制台，自动部署不会接管 `Variables and Secrets`。请在 Pages 的构建设置中配置 `npm run build` 和 `dist`，在 Production 环境绑定 `RESOURCE_KV`，并在控制台配置所有变量和 Secret。不要重新添加 `wrangler.toml`，否则 Cloudflare 可能再次切换为代码配置模式。
 
 部署后先检查：
 
@@ -143,7 +142,7 @@ MailCookies 本身无法由 139 token 自动续期。MailCookies 过期时，需
 
 管理员密码首次成功登录后会以 PBKDF2-SHA256 加盐哈希保存到 KV，之后以 KV 哈希为准。管理员配置、139 凭据和资源显示规则使用 `ADMIN_DATA_KEY` 加密。修改云盘配置会清除旧的 139 会话；修改资源规则会递增规则版本，让新的公开目录缓存立即使用最新显示状态。
 
-使用 GitHub 自动部署时，生产环境变量和 Secrets 应配置在 Cloudflare Pages 项目的 `Settings` → `Variables and Secrets` 中，不要把生产值写入 `wrangler.toml`。修改 Pages 变量后需要重新部署才会应用到 Functions。
+使用 GitHub 自动部署时，生产环境变量和 Secrets 应配置在 Cloudflare Pages 项目的 `Settings` → `Variables and Secrets` 中。修改 Pages 变量后需要重新部署才会应用到 Functions。使用 `npm run cf:dev` 本地开发时，Wrangler 会使用本地 KV 模拟绑定，不依赖生产配置文件。
 
 ## 当前边界
 
