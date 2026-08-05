@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   AlertCircle,
   ArrowLeft,
@@ -92,6 +92,59 @@ function errorMessage(payload: ApiErrorPayload | null, fallback: string): string
     default:
       return payload?.error || fallback;
   }
+}
+
+function executableMarkupNode(node: Node): Node {
+  const clone = node.cloneNode(true);
+  if (!(clone instanceof Element)) {
+    return clone;
+  }
+  if (clone.tagName.toLowerCase() === "script") {
+    const script = document.createElement("script");
+    for (const attribute of Array.from(clone.attributes)) {
+      script.setAttribute(attribute.name, attribute.value);
+    }
+    script.textContent = clone.textContent;
+    return script;
+  }
+  for (const script of Array.from(clone.querySelectorAll("script"))) {
+    script.replaceWith(executableMarkupNode(script));
+  }
+  return clone;
+}
+
+function mountMarkup(markup: string, target: Node): () => void {
+  if (!markup.trim()) {
+    return () => undefined;
+  }
+  const template = document.createElement("template");
+  template.innerHTML = markup;
+  const nodes = Array.from(template.content.childNodes).map(executableMarkupNode);
+  nodes.forEach((node) => target.appendChild(node));
+  return () => {
+    nodes.forEach((node) => node.parentNode?.removeChild(node));
+  };
+}
+
+function CustomHead({ markup }: { markup: string }) {
+  useEffect(() => mountMarkup(markup, document.head), [markup]);
+  return null;
+}
+
+function CustomContent({ markup }: { markup: string }) {
+  const container = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    if (!container.current) {
+      return undefined;
+    }
+    return mountMarkup(markup, container.current);
+  }, [markup]);
+
+  if (!markup.trim()) {
+    return null;
+  }
+  return <div className="custom-content" ref={container} />;
 }
 
 function App() {
@@ -269,6 +322,7 @@ function App() {
 
   return (
     <div className="app-shell">
+      <CustomHead markup={siteSettings.customHead} />
       <header className="topbar">
         <div className="topbar-inner">
           <a className="brand" href="/" onClick={(event) => { event.preventDefault(); navigate("root"); }}>
@@ -297,6 +351,8 @@ function App() {
             dangerouslySetInnerHTML={{ __html: renderMarkdown(siteSettings.markdown) }}
           />
         )}
+
+        <CustomContent markup={siteSettings.customContent} />
 
         <section className="workspace" aria-label="资源目录">
           <div className="toolbar">

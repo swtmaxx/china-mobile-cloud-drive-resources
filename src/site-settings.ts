@@ -6,6 +6,8 @@ export interface SiteSettings {
   headerTitle: string;
   headerSubtitle: string;
   markdown: string;
+  customHead: string;
+  customContent: string;
   updatedAt?: number;
   version?: number;
 }
@@ -15,6 +17,8 @@ export const defaultSiteSettings: SiteSettings = {
   headerTitle: "找到你需要的资源",
   headerSubtitle: "按目录浏览公开资源，文件下载由云端直连。",
   markdown: "",
+  customHead: "",
+  customContent: "",
 };
 
 function textOrFallback(value: unknown, fallback: string): string {
@@ -28,6 +32,8 @@ export function normalizeSiteSettings(value: unknown): SiteSettings {
     headerTitle: textOrFallback(input.headerTitle, defaultSiteSettings.headerTitle),
     headerSubtitle: textOrFallback(input.headerSubtitle, defaultSiteSettings.headerSubtitle),
     markdown: typeof input.markdown === "string" ? input.markdown : defaultSiteSettings.markdown,
+    customHead: typeof input.customHead === "string" ? input.customHead : defaultSiteSettings.customHead,
+    customContent: typeof input.customContent === "string" ? input.customContent : defaultSiteSettings.customContent,
     ...(typeof input.updatedAt === "number" ? { updatedAt: input.updatedAt } : {}),
     ...(typeof input.version === "number" ? { version: input.version } : {}),
   };

@@ -350,6 +350,8 @@ function AdminApp() {
           headerTitle: siteSettings.headerTitle,
           headerSubtitle: siteSettings.headerSubtitle,
           markdown: siteSettings.markdown,
+          customHead: siteSettings.customHead,
+          customContent: siteSettings.customContent,
         }),
       });
       setSiteSettings(normalizeSiteSettings(payload));
@@ -508,7 +510,9 @@ function AdminApp() {
                 <label className="admin-field wide-field"><span>头部说明</span><input value={siteSettings.headerSubtitle} onChange={(event) => setSiteSettings((value) => ({ ...value, headerSubtitle: event.target.value }))} maxLength={256} required /></label>
               </div>
               <label className="admin-field"><span>Markdown 内容</span><textarea value={siteSettings.markdown} onChange={(event) => setSiteSettings((value) => ({ ...value, markdown: event.target.value }))} maxLength={100000} rows={14} placeholder="可填写站点公告、使用说明或其他公开内容" /></label>
-              <div className="admin-form-actions"><span className="admin-muted">内容会显示在公开首页的资源目录上方。</span><button className="admin-button primary" type="submit" disabled={siteSettingsBusy !== null}>{siteSettingsBusy === "save" ? <RefreshCw size={16} className="spin" /> : <Save size={16} />}保存个性化设置</button></div>
+              <label className="admin-field"><span>自定义头部</span><textarea value={siteSettings.customHead} onChange={(event) => setSiteSettings((value) => ({ ...value, customHead: event.target.value }))} maxLength={200000} rows={9} spellCheck={false} placeholder="可填写 &lt;meta&gt;、&lt;style&gt; 或 &lt;script&gt; 标签" /></label>
+              <label className="admin-field"><span>自定义内容</span><textarea value={siteSettings.customContent} onChange={(event) => setSiteSettings((value) => ({ ...value, customContent: event.target.value }))} maxLength={200000} rows={12} spellCheck={false} placeholder="可填写公开首页需要显示的 HTML 内容" /></label>
+              <div className="admin-form-actions"><span className="admin-muted">自定义代码会直接发布到公开首页，请只粘贴你信任的 HTML、CSS 或 JavaScript。</span><button className="admin-button primary" type="submit" disabled={siteSettingsBusy !== null}>{siteSettingsBusy === "save" ? <RefreshCw size={16} className="spin" /> : <Save size={16} />}保存个性化设置</button></div>
             </form>
             <div className="admin-markdown-preview-panel">
               <div className="admin-markdown-preview-heading"><FileText size={17} /><strong>Markdown 预览</strong><span className="admin-muted">实时</span></div>

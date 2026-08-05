@@ -126,7 +126,7 @@ GET /api/admin/resources?dir=root
 PATCH /api/admin/resources
 ```
 
-在 `/admin` 的个性化设置中可以修改公开站点名称、头部标题、头部说明以及首页 Markdown 内容。设置使用 `ADMIN_DATA_KEY` 加密保存在 KV 中；公开接口不返回任何管理员或云盘敏感配置，Markdown 在浏览器渲染前会经过标签和属性白名单清理。
+在 `/admin` 的个性化设置中可以修改公开站点名称、头部标题、头部说明、首页 Markdown、自定义头部和自定义内容。设置使用 `ADMIN_DATA_KEY` 加密保存在 KV 中；公开接口不返回任何管理员或云盘敏感配置，Markdown 在浏览器渲染前会经过标签和属性白名单清理。自定义头部和自定义内容会按原始 HTML/CSS/JavaScript 发布到公开首页，只应粘贴自己信任的代码；后台不会执行或预览这两项代码。
 
 管理员资源接口始终浏览云盘原始根目录。对 `PATCH /api/admin/resources` 发送 `{ resourceHandle, displayRoot: true }` 可将一个文件夹设为公开展示根目录；发送 `{ displayRoot: false }` 可恢复使用 `YUN139_ROOT_ID`。展示根目录、隐藏规则和对应版本保存在加密 KV 中。切换展示根目录会立即使旧公开目录句柄失效，隐藏资源不会出现在公开目录中，也不能下载。
 

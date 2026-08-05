@@ -308,6 +308,8 @@ describe("site personalization APIs", () => {
       headerTitle: "找到你需要的资源",
       headerSubtitle: "按目录浏览公开资源，文件下载由云端直连。",
       markdown: "",
+      customHead: "",
+      customContent: "",
       version: 0,
     });
 
@@ -330,6 +332,8 @@ describe("site personalization APIs", () => {
       headerTitle: "精选资源下载",
       headerSubtitle: "欢迎浏览最新公开内容。",
       markdown: "## 公告\n\n请先阅读 [使用说明](https://example.test/guide)。\n\n<script>alert('xss')</script>",
+      customHead: '<script async src="//example.test/counter.js"></script>',
+      customContent: '<div id="customize" style="display:none"><span id="counter"></span></div>',
     };
 
     const csrfMissing = await patchAdminSiteSettings(context(new Request("https://example.test/api/admin/site-settings", {
@@ -348,6 +352,8 @@ describe("site personalization APIs", () => {
     const stored = values.get(ADMIN_SITE_SETTINGS_KEY) || "";
     expect(stored).not.toContain(settings.siteName);
     expect(stored).not.toContain(settings.markdown);
+    expect(stored).not.toContain(settings.customHead);
+    expect(stored).not.toContain(settings.customContent);
 
     const adminBody = await saved.json() as typeof settings & { version: number };
     expect(adminBody).toMatchObject({ ...settings, version: 1 });
@@ -371,5 +377,12 @@ describe("site personalization APIs", () => {
       headers: { Cookie: cookie, "X-CSRF-Token": loginBody.csrfToken, "Content-Type": "application/json" },
     }), env));
     expect(response.status).toBe(400);
+
+    const markupResponse = await patchAdminSiteSettings(context(new Request("https://example.test/api/admin/site-settings", {
+      method: "PATCH",
+      body: JSON.stringify({ customHead: "x".repeat(200001) }),
+      headers: { Cookie: cookie, "X-CSRF-Token": loginBody.csrfToken, "Content-Type": "application/json" },
+    }), env));
+    expect(markupResponse.status).toBe(400);
   });
 });
