@@ -20,6 +20,7 @@ export interface SiteSettings {
   faviconUrl: string;
   backgroundUrl: string;
   darkBackgroundUrl: string;
+  backgroundBlur: number;
   updatedAt?: number;
 }
 
@@ -34,6 +35,7 @@ const MAX_SHORT_TEXT = 256;
 const MAX_MARKDOWN = 100_000;
 const MAX_CUSTOM_MARKUP = 200_000;
 const MAX_URL = 2_048;
+const MAX_BACKGROUND_BLUR = 32;
 const THEME_MODES = new Set(["system", "light", "dark"]);
 
 function textValue(value: unknown, fallback: string, maxLength = MAX_SHORT_TEXT): string {
@@ -84,6 +86,10 @@ function isValidOptionalUrl(value: unknown): value is string {
   return typeof value === "string" && (!value.trim() || Boolean(urlValue(value)));
 }
 
+function backgroundBlurValue(value: unknown, fallback: number): number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= MAX_BACKGROUND_BLUR ? value : fallback;
+}
+
 export function defaultSiteSettings(env: Env): SiteSettings {
   return {
     siteName: textValue(env.VITE_SITE_NAME, DEFAULT_SITE_NAME),
@@ -96,6 +102,7 @@ export function defaultSiteSettings(env: Env): SiteSettings {
     faviconUrl: "",
     backgroundUrl: "",
     darkBackgroundUrl: "",
+    backgroundBlur: 0,
   };
 }
 
@@ -121,6 +128,7 @@ export async function readSiteSettings(env: Env, recoverCorrupt = false): Promis
     faviconUrl: urlValue(stored?.faviconUrl),
     backgroundUrl: urlValue(stored?.backgroundUrl),
     darkBackgroundUrl: urlValue(stored?.darkBackgroundUrl),
+    backgroundBlur: backgroundBlurValue(stored?.backgroundBlur, defaults.backgroundBlur),
     updatedAt: typeof stored?.updatedAt === "number" ? stored.updatedAt : undefined,
     version: await readNumericValue(env, SITE_SETTINGS_VERSION_KEY, 0),
   };
@@ -138,6 +146,7 @@ export async function updateSiteSettings(env: Env, patch: Record<string, unknown
     "faviconUrl",
     "backgroundUrl",
     "darkBackgroundUrl",
+    "backgroundBlur",
   ]);
   const unknown = Object.keys(patch).filter((field) => !allowed.has(field));
   if (unknown.length > 0) {
@@ -160,6 +169,7 @@ export async function updateSiteSettings(env: Env, patch: Record<string, unknown
     faviconUrl: current.faviconUrl,
     backgroundUrl: current.backgroundUrl,
     darkBackgroundUrl: current.darkBackgroundUrl,
+    backgroundBlur: current.backgroundBlur,
   };
   for (const field of ["siteName", "headerTitle", "headerSubtitle"] as const) {
     if (!Object.prototype.hasOwnProperty.call(patch, field)) {
@@ -199,6 +209,12 @@ export async function updateSiteSettings(env: Env, patch: Record<string, unknown
       throw new AdminError("图标或背景图片地址必须是有效的 HTTP/HTTPS URL。", 400, "invalid_input");
     }
     next[field] = urlValue(patch[field]);
+  }
+  if (Object.prototype.hasOwnProperty.call(patch, "backgroundBlur")) {
+    if (typeof patch.backgroundBlur !== "number" || !Number.isInteger(patch.backgroundBlur) || patch.backgroundBlur < 0 || patch.backgroundBlur > MAX_BACKGROUND_BLUR) {
+      throw new AdminError("背景模糊值应为 0 到 32 之间的整数。", 400, "invalid_input");
+    }
+    next.backgroundBlur = patch.backgroundBlur;
   }
   next.updatedAt = Date.now();
   await writeAdminJson(env, ADMIN_SITE_SETTINGS_KEY, next);

@@ -14,6 +14,7 @@ export interface SiteSettings {
   faviconUrl: string;
   backgroundUrl: string;
   darkBackgroundUrl: string;
+  backgroundBlur: number;
   updatedAt?: number;
   version?: number;
 }
@@ -29,6 +30,7 @@ export const defaultSiteSettings: SiteSettings = {
   faviconUrl: "",
   backgroundUrl: "",
   darkBackgroundUrl: "",
+  backgroundBlur: 0,
 };
 
 function textOrFallback(value: unknown, fallback: string): string {
@@ -60,6 +62,7 @@ export function normalizeSiteSettings(value: unknown): SiteSettings {
     faviconUrl: normalizeUrl(input.faviconUrl),
     backgroundUrl: normalizeUrl(input.backgroundUrl),
     darkBackgroundUrl: normalizeUrl(input.darkBackgroundUrl),
+    backgroundBlur: typeof input.backgroundBlur === "number" && Number.isInteger(input.backgroundBlur) && input.backgroundBlur >= 0 && input.backgroundBlur <= 32 ? input.backgroundBlur : defaultSiteSettings.backgroundBlur,
     ...(typeof input.updatedAt === "number" ? { updatedAt: input.updatedAt } : {}),
     ...(typeof input.version === "number" ? { version: input.version } : {}),
   };

@@ -209,11 +209,13 @@ function App() {
       ? siteSettings.darkBackgroundUrl || siteSettings.backgroundUrl
       : siteSettings.backgroundUrl || siteSettings.darkBackgroundUrl;
     root.style.setProperty("--site-background-image", cssBackgroundImage(background));
+    root.style.setProperty("--site-background-blur", `${siteSettings.backgroundBlur}px`);
     return () => {
       delete root.dataset.theme;
       root.style.removeProperty("--site-background-image");
+      root.style.removeProperty("--site-background-blur");
     };
-  }, [resolvedTheme, siteSettings.backgroundUrl, siteSettings.darkBackgroundUrl]);
+  }, [resolvedTheme, siteSettings.backgroundBlur, siteSettings.backgroundUrl, siteSettings.darkBackgroundUrl]);
 
   useEffect(() => {
     const links = Array.from(document.head.querySelectorAll<HTMLLinkElement>("link[data-resource-hub-favicon]"));

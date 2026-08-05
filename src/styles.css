@@ -15,6 +15,7 @@
   --blue: #3964b8;
   --shadow: 0 16px 42px rgba(32, 35, 30, 0.07);
   --site-background-image: none;
+  --site-background-blur: 0px;
 }
 
 :root[data-theme="dark"] {
@@ -32,7 +33,9 @@
 
 * { box-sizing: border-box; }
 
-body { margin: 0; min-width: 320px; min-height: 100vh; background-color: #f5f5f1; background-image: var(--site-background-image); background-position: center; background-attachment: fixed; background-size: cover; }
+body { position: relative; margin: 0; min-width: 320px; min-height: 100vh; background-color: #f5f5f1; }
+body::before { content: ""; position: fixed; z-index: 0; inset: calc(var(--site-background-blur) * -1); pointer-events: none; background-image: var(--site-background-image); background-position: center; background-size: cover; background-repeat: no-repeat; filter: blur(var(--site-background-blur)); }
+#root { position: relative; z-index: 1; }
 
 button, a { font: inherit; }
 button { color: inherit; }
@@ -242,9 +245,12 @@ h1 { max-width: 700px; margin-bottom: 10px; font-size: 39px; line-height: 1.12; 
 .admin-field { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
 .admin-field > span { color: #5c625e; font-size: 12px; font-weight: 700; }
 .admin-field input, .admin-field select, .admin-field textarea { width: 100%; border: 1px solid #d6ded9; border-radius: 5px; padding: 10px 11px; color: var(--ink); background: #fbfcfb; outline: 0; font-size: 13px; }
+.admin-field input[type="range"] { height: 22px; border: 0; padding: 0; accent-color: #347c6a; background: transparent; }
 .admin-field textarea { resize: vertical; min-height: 78px; line-height: 1.45; }
 .admin-field input:focus, .admin-field select:focus, .admin-field textarea:focus { border-color: #65a28e; box-shadow: 0 0 0 3px rgba(52,124,106,.12); }
 .admin-field input::placeholder, .admin-field textarea::placeholder { color: #a4aaa6; }
+.background-blur-field > span { display: flex; align-items: center; justify-content: space-between; }
+.background-blur-field strong { color: #347c6a; font-size: 12px; }
 .admin-button { min-height: 37px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; border: 1px solid transparent; border-radius: 5px; padding: 8px 13px; font-size: 12px; font-weight: 750; cursor: pointer; }
 .admin-button:disabled, .admin-icon-button:disabled { cursor: not-allowed; opacity: .5; }
 .admin-button.primary { color: #fff; background: #347c6a; }

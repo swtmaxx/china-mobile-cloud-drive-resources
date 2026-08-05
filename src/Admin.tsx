@@ -356,6 +356,7 @@ function AdminApp() {
           faviconUrl: siteSettings.faviconUrl,
           backgroundUrl: siteSettings.backgroundUrl,
           darkBackgroundUrl: siteSettings.darkBackgroundUrl,
+          backgroundBlur: siteSettings.backgroundBlur,
         }),
       });
       setSiteSettings(normalizeSiteSettings(payload));
@@ -516,11 +517,12 @@ function AdminApp() {
                 <label className="admin-field"><span>网站图标 URL</span><input type="url" value={siteSettings.faviconUrl} onChange={(event) => setSiteSettings((value) => ({ ...value, faviconUrl: event.target.value }))} maxLength={2048} placeholder="https://example.com/favicon.png" /></label>
                 <label className="admin-field wide-field"><span>浅色模式背景 URL</span><input type="url" value={siteSettings.backgroundUrl} onChange={(event) => setSiteSettings((value) => ({ ...value, backgroundUrl: event.target.value }))} maxLength={2048} placeholder="https://example.com/light-background.webp" /></label>
                 <label className="admin-field wide-field"><span>深色模式背景 URL</span><input type="url" value={siteSettings.darkBackgroundUrl} onChange={(event) => setSiteSettings((value) => ({ ...value, darkBackgroundUrl: event.target.value }))} maxLength={2048} placeholder="https://example.com/dark-background.webp" /></label>
+                <label className="admin-field wide-field background-blur-field"><span>背景模糊 <strong>{siteSettings.backgroundBlur}px</strong></span><input type="range" min="0" max="32" step="1" value={siteSettings.backgroundBlur} onChange={(event) => setSiteSettings((value) => ({ ...value, backgroundBlur: Number(event.target.value) }))} /></label>
               </div>
               <label className="admin-field"><span>Markdown 内容</span><textarea value={siteSettings.markdown} onChange={(event) => setSiteSettings((value) => ({ ...value, markdown: event.target.value }))} maxLength={100000} rows={14} placeholder="可填写站点公告、使用说明或其他公开内容" /></label>
               <label className="admin-field"><span>自定义头部</span><textarea value={siteSettings.customHead} onChange={(event) => setSiteSettings((value) => ({ ...value, customHead: event.target.value }))} maxLength={200000} rows={9} spellCheck={false} placeholder="可填写 &lt;meta&gt;、&lt;style&gt; 或 &lt;script&gt; 标签" /></label>
               <label className="admin-field"><span>自定义内容</span><textarea value={siteSettings.customContent} onChange={(event) => setSiteSettings((value) => ({ ...value, customContent: event.target.value }))} maxLength={200000} rows={12} spellCheck={false} placeholder="可填写公开首页需要显示的 HTML 内容" /></label>
-              <div className="admin-form-actions"><span className="admin-muted">公开页右上角可切换主题；背景和图标地址需使用 HTTP/HTTPS URL。</span><button className="admin-button primary" type="submit" disabled={siteSettingsBusy !== null}>{siteSettingsBusy === "save" ? <RefreshCw size={16} className="spin" /> : <Save size={16} />}保存个性化设置</button></div>
+              <div className="admin-form-actions"><span className="admin-muted">公开页右上角可切换主题；背景模糊只作用于背景图片，不会模糊正文。</span><button className="admin-button primary" type="submit" disabled={siteSettingsBusy !== null}>{siteSettingsBusy === "save" ? <RefreshCw size={16} className="spin" /> : <Save size={16} />}保存个性化设置</button></div>
             </form>
             <div className="admin-markdown-preview-panel">
               <div className="admin-markdown-preview-heading"><FileText size={17} /><strong>Markdown 预览</strong><span className="admin-muted">实时</span></div>

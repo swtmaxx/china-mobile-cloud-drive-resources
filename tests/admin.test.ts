@@ -314,6 +314,7 @@ describe("site personalization APIs", () => {
       faviconUrl: "",
       backgroundUrl: "",
       darkBackgroundUrl: "",
+      backgroundBlur: 0,
       version: 0,
     });
 
@@ -342,6 +343,7 @@ describe("site personalization APIs", () => {
       faviconUrl: "https://example.test/favicon.png",
       backgroundUrl: "https://example.test/light.webp",
       darkBackgroundUrl: "https://example.test/dark.webp",
+      backgroundBlur: 12,
     };
 
     const csrfMissing = await patchAdminSiteSettings(context(new Request("https://example.test/api/admin/site-settings", {
@@ -406,5 +408,12 @@ describe("site personalization APIs", () => {
       headers: { Cookie: cookie, "X-CSRF-Token": loginBody.csrfToken, "Content-Type": "application/json" },
     }), env));
     expect(invalidThemeResponse.status).toBe(400);
+
+    const invalidBlurResponse = await patchAdminSiteSettings(context(new Request("https://example.test/api/admin/site-settings", {
+      method: "PATCH",
+      body: JSON.stringify({ backgroundBlur: 33 }),
+      headers: { Cookie: cookie, "X-CSRF-Token": loginBody.csrfToken, "Content-Type": "application/json" },
+    }), env));
+    expect(invalidBlurResponse.status).toBe(400);
   });
 });
