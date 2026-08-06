@@ -491,13 +491,26 @@ function AdminApp() {
         </div>
       </header>
       <main className="admin-main">
-        {notice && <div className={`admin-alert ${notice.kind}`} role="status">{notice.kind === "success" ? <CheckCircle2 size={17} /> : <AlertCircle size={17} />}<span>{notice.text}</span><button className="admin-alert-close" type="button" onClick={() => setNotice(null)} aria-label="关闭提示">×</button></div>}
-        <section className="admin-heading-band">
-          <div><p className="admin-kicker">CONTROL ROOM</p><h1>后台管理</h1><p className="admin-muted">配置云盘连接，并控制公开资源的显示状态。</p></div>
-          <div className="admin-heading-meta"><ShieldCheck size={20} /><span>会话至 {formatDate(session.expiresAt)}</span></div>
-        </section>
+        <div className="admin-layout">
+          <aside className="admin-sidebar" aria-label="后台模块导航">
+            <p className="admin-sidebar-kicker">WORKSPACE</p>
+            <strong className="admin-sidebar-title">管理模块</strong>
+            <nav className="admin-sidebar-nav">
+              <a href="#security-panel"><KeyRound size={16} />账号安全</a>
+              <a href="#personalization-panel"><Palette size={16} />网站设置</a>
+              <a href="#provider-panel"><Server size={16} />139 云盘</a>
+              <a href="#resources-panel"><Folder size={16} />资源显示</a>
+            </nav>
+            <div className="admin-sidebar-note"><ShieldCheck size={16} /><span>单管理员模式<br /><small>会话至 {formatDate(session.expiresAt)}</small></span></div>
+          </aside>
+          <div className="admin-content">
+            {notice && <div className={`admin-alert ${notice.kind}`} role="status">{notice.kind === "success" ? <CheckCircle2 size={17} /> : <AlertCircle size={17} />}<span>{notice.text}</span><button className="admin-alert-close" type="button" onClick={() => setNotice(null)} aria-label="关闭提示">×</button></div>}
+            <section className="admin-heading-band">
+              <div><p className="admin-kicker">CONTROL ROOM</p><h1>后台管理</h1><p className="admin-muted">配置云盘连接，并控制公开资源的显示状态。</p></div>
+              <div className="admin-heading-meta"><ShieldCheck size={20} /><span>会话至 {formatDate(session.expiresAt)}</span></div>
+            </section>
 
-        <section className="admin-section security-section" aria-labelledby="security-heading">
+        <section id="security-panel" className="admin-section security-section" aria-labelledby="security-heading">
           <div className="admin-section-heading"><div className="admin-section-icon"><KeyRound size={19} /></div><div><p className="admin-kicker">ACCOUNT SECURITY</p><h2 id="security-heading">账号安全</h2></div></div>
           <div className="admin-two-column">
             <div className="admin-status-block"><div className="admin-status-label"><UserRound size={17} />当前账号</div><strong>admin</strong><span className="admin-muted">单管理员模式</span><div className="admin-status-line"><ShieldCheck size={15} />密码已配置</div></div>
@@ -505,7 +518,7 @@ function AdminApp() {
           </div>
         </section>
 
-        <section className="admin-section personalization-section" aria-labelledby="personalization-heading">
+        <section id="personalization-panel" className="admin-section personalization-section" aria-labelledby="personalization-heading">
           <div className="admin-section-heading"><div className="admin-section-icon personalization"><Palette size={19} /></div><div><p className="admin-kicker">PUBLIC APPEARANCE</p><h2 id="personalization-heading">个性化设置</h2></div></div>
           <div className="admin-personalization-layout">
             <form className="admin-form" onSubmit={saveSiteSettings}>
@@ -531,19 +544,21 @@ function AdminApp() {
           </div>
         </section>
 
-        <section className="admin-section provider-section" aria-labelledby="provider-heading">
+        <section id="provider-panel" className="admin-section provider-section" aria-labelledby="provider-heading">
           <div className="admin-section-heading"><div className="admin-section-icon provider"><Server size={19} /></div><div><p className="admin-kicker">139 CLOUD CONNECTION</p><h2 id="provider-heading">139 云盘账号</h2></div><div className="admin-heading-actions"><button className="admin-button secondary" type="button" onClick={() => void testProvider()} disabled={providerBusy !== null}><Wifi size={16} />连接测试</button></div></div>
           <div className="admin-provider-status">{provider ? <><span className={provider.authorizationConfigured ? "admin-badge configured" : "admin-badge"}>{provider.authorizationConfigured ? "Authorization 已配置" : "Authorization 未配置"}</span><span className={provider.mailCookiesConfigured ? "admin-badge configured" : "admin-badge"}>{provider.mailCookiesConfigured ? "MailCookies 已配置" : "MailCookies 未配置"}</span><span className="admin-badge">账号 {provider.usernameMasked || "未配置"}</span>{provider.authorizationExpired && <span className="admin-badge warning">Authorization 已过期</span>}</> : <span className="admin-muted">正在读取配置状态</span>}</div>
           <form className="admin-form" onSubmit={saveProvider}><div className="admin-form-grid provider-grid"><label className="admin-field"><span>用户名</span><input value={providerValues.username} onChange={(event) => setProviderValues((value) => ({ ...value, username: event.target.value }))} placeholder={provider?.usernameConfigured ? "已配置，输入新值覆盖" : "输入 139 用户名"} autoComplete="off" /></label><label className="admin-field"><span>账号类型</span><select value={providerValues.type} onChange={(event) => setProviderValues((value) => ({ ...value, type: event.target.value }))}><option value="personal_new">个人云</option><option value="family">家庭云</option></select></label><label className="admin-field"><span>根目录 ID</span><input value={providerValues.rootId} onChange={(event) => setProviderValues((value) => ({ ...value, rootId: event.target.value }))} /></label><label className="admin-field wide-field"><span>Authorization</span><input value={providerValues.authorization} onChange={(event) => setProviderValues((value) => ({ ...value, authorization: event.target.value }))} placeholder={provider?.authorizationConfigured ? "已配置，留空保持不变" : "粘贴 Authorization"} autoComplete="off" /></label><label className="admin-field"><span>密码</span><input type="password" value={providerValues.password} onChange={(event) => setProviderValues((value) => ({ ...value, password: event.target.value }))} placeholder={provider?.passwordConfigured ? "已配置，留空保持不变" : "输入云盘密码"} autoComplete="new-password" /></label><label className="admin-field wide-field"><span>MailCookies</span><textarea value={providerValues.mailCookies} onChange={(event) => setProviderValues((value) => ({ ...value, mailCookies: event.target.value }))} placeholder={provider?.mailCookiesConfigured ? "已配置，留空保持不变" : "粘贴 MailCookies"} rows={3} autoComplete="off" /></label></div><div className="admin-secret-clear-row">{(["username", "authorization", "password", "mailCookies"] as const).map((field) => <label className="admin-check" key={field}><input type="checkbox" checked={clearFields[field]} onChange={(event) => setClearFields((value) => ({ ...value, [field]: event.target.checked }))} />清空{field === "username" ? "用户名" : field === "authorization" ? "Authorization" : field === "password" ? "密码" : "MailCookies"}</label>)}</div><div className="admin-form-actions"><button className="admin-button primary" type="submit" disabled={providerBusy !== null}>{providerBusy === "save" ? <RefreshCw size={16} className="spin" /> : <Save size={16} />}保存云盘配置</button><button className="admin-button danger" type="button" onClick={() => void clearProvider()} disabled={providerBusy !== null}><Trash2 size={16} />清空全部凭据</button></div></form>
         </section>
 
-        <section className="admin-section resources-section" aria-labelledby="resources-heading">
+        <section id="resources-panel" className="admin-section resources-section" aria-labelledby="resources-heading">
           <div className="admin-section-heading"><div className="admin-section-icon resource"><Folder size={19} /></div><div><p className="admin-kicker">PUBLIC VISIBILITY</p><h2 id="resources-heading">资源显示管理</h2></div><button className="admin-icon-button section-refresh" type="button" onClick={() => void loadResources(resourceDirectory?.current.handle || "root")} disabled={resourceBusy} title="刷新资源目录" aria-label="刷新资源目录"><RefreshCw size={18} className={resourceBusy ? "spin" : ""} /></button></div>
           <div className="admin-resource-toolbar"><div className="admin-breadcrumbs">{resourceTrail.map((item, index) => <span key={item.handle} className="admin-breadcrumb"><button type="button" className={index === resourceTrail.length - 1 ? "current" : ""} onClick={() => void loadResources(item.handle)}>{item.name}</button>{index < resourceTrail.length - 1 && <ChevronRight size={15} />}</span>)}</div><div className="admin-resource-toolbar-actions"><span className="admin-root-status"><Home size={14} />公开根目录：{resourceDirectory?.displayRoot.name || "资源根目录"}</span>{resourceDirectory?.displayRoot.configured && <button className="admin-button secondary admin-reset-root" type="button" onClick={() => void setDisplayRoot(null)} disabled={displayRootBusy}><Home size={15} />恢复云盘根目录</button>}<span className="admin-muted">规则版本 {resourceDirectory?.rulesVersion ?? "-"}</span></div></div>
           {resourceBusy && !resourceDirectory && <div className="admin-empty"><RefreshCw size={21} className="spin" />正在读取资源目录</div>}
           {!resourceBusy && resourceDirectory && <div className="admin-resource-list"><div className="admin-resource-head" aria-hidden="true"><span /><span>名称</span><span>类型</span><span>大小</span><span>状态</span><span>展示根</span><span>操作</span></div>{sortedResources.map((item) => <div className={`admin-resource-row ${item.hidden ? "is-hidden" : ""}`} key={item.handle}><span className={`admin-resource-icon ${item.kind}`}>{item.kind === "folder" ? <Folder size={18} /> : <File size={18} />}</span>{item.kind === "folder" ? <button className="admin-resource-name admin-resource-name-button" type="button" onClick={() => void loadResources(item.handle)} title={`打开 ${item.name}`}>{item.name}<ChevronRight size={15} />{item.displayRoot && <span className="admin-root-marker">展示根</span>}</button> : <span className="admin-resource-name">{item.name}</span>}<span className="admin-resource-type">{item.kind === "folder" ? "文件夹" : item.extension?.toUpperCase() || "文件"}</span><span className="admin-resource-size">{formatSize(item.size)}</span><span className={item.hidden ? "admin-visibility hidden" : "admin-visibility"}>{item.hidden ? <><EyeOff size={15} />隐藏</> : <><Eye size={15} />显示</>}</span>{item.kind === "folder" ? <button className={`admin-root-button ${item.displayRoot ? "active" : ""}`} type="button" onClick={() => void setDisplayRoot(item.displayRoot ? null : item)} disabled={displayRootBusy} title={item.displayRoot ? "取消展示根目录" : "设为展示根目录"} aria-label={`${item.displayRoot ? "取消展示根目录" : "设为展示根目录"} ${item.name}`}>{displayRootBusy ? <RefreshCw size={15} className="spin" /> : <Home size={15} />}</button> : <span className="admin-root-spacer" />}<button className="admin-visibility-button" type="button" onClick={() => void toggleResource(item)} disabled={resourceToggling === item.handle} title={item.hidden ? "恢复显示" : "隐藏资源"} aria-label={`${item.hidden ? "恢复显示" : "隐藏"} ${item.name}`}>{resourceToggling === item.handle ? <RefreshCw size={16} className="spin" /> : item.hidden ? <Eye size={16} /> : <EyeOff size={16} />}</button></div>)}{sortedResources.length === 0 && <div className="admin-empty"><Folder size={21} />当前目录为空</div>}</div>}
           <div className="admin-resource-footer"><button className="admin-button secondary" type="button" onClick={() => resourceDirectory?.current.parentHandle && void loadResources(resourceDirectory.current.parentHandle)} disabled={!resourceDirectory?.current.parentHandle || resourceBusy}><ChevronRight size={16} className="rotate-left" />返回上级</button><span className="admin-muted">隐藏资源仍保留在后台目录中</span></div>
         </section>
+          </div>
+        </div>
       </main>
     </div>
   );
