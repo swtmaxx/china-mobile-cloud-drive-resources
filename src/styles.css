@@ -325,13 +325,6 @@ button:focus-visible, a:focus-visible { outline: 3px solid var(--warm); outline-
   font-weight: 700;
 }
 
-.eyebrow-rule {
-  width: 54px;
-  height: 3px;
-  flex: 0 0 auto;
-  background: var(--accent);
-}
-
 h1, h2, p { margin-top: 0; }
 
 h1 {
