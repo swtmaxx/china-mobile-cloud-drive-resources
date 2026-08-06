@@ -37,6 +37,10 @@ function textOrFallback(value: unknown, fallback: string): string {
   return typeof value === "string" && value.trim() ? value.trim() : fallback;
 }
 
+function optionalTextOrFallback(value: unknown, fallback: string): string {
+  return typeof value === "string" ? value.trim() : fallback;
+}
+
 function normalizeUrl(value: unknown): string {
   if (typeof value !== "string" || !value.trim()) {
     return "";
@@ -53,8 +57,8 @@ export function normalizeSiteSettings(value: unknown): SiteSettings {
   const input = value && typeof value === "object" ? value as Partial<SiteSettings> : {};
   return {
     siteName: textOrFallback(input.siteName, defaultSiteSettings.siteName),
-    headerTitle: textOrFallback(input.headerTitle, defaultSiteSettings.headerTitle),
-    headerSubtitle: textOrFallback(input.headerSubtitle, defaultSiteSettings.headerSubtitle),
+    headerTitle: optionalTextOrFallback(input.headerTitle, defaultSiteSettings.headerTitle),
+    headerSubtitle: optionalTextOrFallback(input.headerSubtitle, defaultSiteSettings.headerSubtitle),
     markdown: typeof input.markdown === "string" ? input.markdown : defaultSiteSettings.markdown,
     customHead: typeof input.customHead === "string" ? input.customHead : defaultSiteSettings.customHead,
     customContent: typeof input.customContent === "string" ? input.customContent : defaultSiteSettings.customContent,

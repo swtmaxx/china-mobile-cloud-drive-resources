@@ -369,6 +369,16 @@ describe("site personalization APIs", () => {
     expect(adminBody).toMatchObject({ ...settings, version: 1 });
     const publicBody = await (await getSiteSettings(context(new Request("https://example.test/api/site-settings"), env))).json();
     expect(publicBody).toMatchObject({ ...settings, version: 1 });
+
+    const cleared = await patchAdminSiteSettings(context(new Request("https://example.test/api/admin/site-settings", {
+      method: "PATCH",
+      body: JSON.stringify({ headerTitle: "", headerSubtitle: "   " }),
+      headers: { Cookie: cookie, "X-CSRF-Token": loginBody.csrfToken, "Content-Type": "application/json" },
+    }), env));
+    expect(cleared.status).toBe(200);
+    expect(await cleared.json()).toMatchObject({ headerTitle: "", headerSubtitle: "", version: 2 });
+    const clearedPublic = await (await getSiteSettings(context(new Request("https://example.test/api/site-settings"), env))).json();
+    expect(clearedPublic).toMatchObject({ headerTitle: "", headerSubtitle: "", version: 2 });
   });
 
   it("rejects overlong personalization fields", async () => {

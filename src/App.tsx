@@ -432,8 +432,8 @@ function App() {
         <section className="intro-band">
           <div>
             <p className="eyebrow">RESOURCE LIBRARY</p>
-            <h1>{siteSettings.headerTitle}</h1>
-            <p className="intro-copy">{siteSettings.headerSubtitle}</p>
+            {siteSettings.headerTitle && <h1>{siteSettings.headerTitle}</h1>}
+            {siteSettings.headerSubtitle && <p className="intro-copy">{siteSettings.headerSubtitle}</p>}
           </div>
           <button className="icon-button" type="button" onClick={() => void loadDirectory(directory)} title="刷新目录" aria-label="刷新目录">
             <RefreshCw size={18} className={status === "loading" ? "spin" : ""} />

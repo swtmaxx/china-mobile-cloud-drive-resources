@@ -46,6 +46,14 @@ function textValue(value: unknown, fallback: string, maxLength = MAX_SHORT_TEXT)
   return text && text.length <= maxLength ? text : fallback;
 }
 
+function optionalTextValue(value: unknown, fallback: string, maxLength = MAX_SHORT_TEXT): string {
+  if (typeof value !== "string") {
+    return fallback;
+  }
+  const text = value.trim();
+  return text.length <= maxLength ? text : fallback;
+}
+
 function markdownValue(value: unknown): string {
   if (typeof value !== "string") {
     return "";
@@ -119,8 +127,8 @@ export async function readSiteSettings(env: Env, recoverCorrupt = false): Promis
   const defaults = defaultSiteSettings(env);
   return {
     siteName: textValue(stored?.siteName, defaults.siteName),
-    headerTitle: textValue(stored?.headerTitle, defaults.headerTitle),
-    headerSubtitle: textValue(stored?.headerSubtitle, defaults.headerSubtitle),
+    headerTitle: optionalTextValue(stored?.headerTitle, defaults.headerTitle),
+    headerSubtitle: optionalTextValue(stored?.headerSubtitle, defaults.headerSubtitle),
     markdown: markdownValue(stored?.markdown),
     customHead: markupValue(stored?.customHead),
     customContent: markupValue(stored?.customContent),
@@ -178,7 +186,7 @@ export async function updateSiteSettings(env: Env, patch: Record<string, unknown
     if (typeof patch[field] !== "string" || patch[field].length > MAX_SHORT_TEXT) {
       throw new AdminError("个性化文本格式不正确或过长。", 400, "invalid_input");
     }
-    next[field] = textValue(patch[field], defaults[field]);
+    next[field] = field === "siteName" ? textValue(patch[field], defaults[field]) : optionalTextValue(patch[field], defaults[field]);
   }
   if (Object.prototype.hasOwnProperty.call(patch, "markdown")) {
     if (typeof patch.markdown !== "string" || patch.markdown.length > MAX_MARKDOWN) {
