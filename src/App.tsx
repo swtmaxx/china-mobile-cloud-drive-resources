@@ -431,7 +431,7 @@ function App() {
       <main className="main-content">
         <section className="intro-band">
           <div>
-            <p className="eyebrow">RESOURCE LIBRARY</p>
+            <p className="eyebrow"><span className="eyebrow-rule" aria-hidden="true" />RESOURCE LIBRARY</p>
             {siteSettings.headerTitle && <h1>{siteSettings.headerTitle}</h1>}
             {siteSettings.headerSubtitle && <p className="intro-copy">{siteSettings.headerSubtitle}</p>}
           </div>
