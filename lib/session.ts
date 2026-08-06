@@ -3,7 +3,7 @@ import { parseAuthorization, Yun139Client, ProviderError, sessionFromAuthorizati
 import type { SessionState } from "./139/types";
 import { decryptSecret, encryptSecret } from "./security/secrets";
 import { decodeKeyBytes } from "./security/keys";
-import { providerEnv } from "./provider-config";
+import { persistRefreshedAuthorization, providerEnv } from "./provider-config";
 
 const SESSION_KEY = "session:139:personal-new";
 let inFlight: Promise<SessionState> | undefined;
@@ -79,6 +79,11 @@ async function ensureSessionInternal(env: Env): Promise<SessionState> {
     try {
       const refreshed = await new Yun139Client(configuredEnv, refreshAuthorization).refreshToken();
       const nextSession = { ...refreshed, mailCookies: stored?.mailCookies };
+      try {
+        await persistRefreshedAuthorization(configuredEnv, refreshed.authorization);
+      } catch (error) {
+        console.warn(`[resource-hub] refreshed Authorization was not persisted: ${error instanceof Error ? error.message : "unknown error"}`);
+      }
       await writeStoredSession(configuredEnv, nextSession);
       return nextSession;
     } catch {

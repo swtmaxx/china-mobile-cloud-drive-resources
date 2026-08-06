@@ -165,6 +165,22 @@ export async function updateProviderConfig(env: Env, patch: Record<string, unkno
   return next;
 }
 
+export async function persistRefreshedAuthorization(env: Env, authorization: string): Promise<void> {
+  if (!env.ADMIN_DATA_KEY) {
+    return;
+  }
+  const current = (await readStoredProviderConfig(env)) || {};
+  if (current.authorization === authorization) {
+    return;
+  }
+  await writeAdminJson(env, ADMIN_PROVIDER_KEY, {
+    ...current,
+    authorization,
+    updatedAt: Date.now(),
+  });
+  await invalidateProviderSession(env);
+}
+
 export async function invalidateProviderSession(env: Env): Promise<void> {
   await deleteAdminValue(env, "session:139:personal-new");
   await incrementNumericValue(env, PROVIDER_CONFIG_VERSION_KEY, 0);

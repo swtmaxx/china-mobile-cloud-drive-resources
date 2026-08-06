@@ -1,9 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import type { KVNamespace } from "@cloudflare/workers-types";
 import type { Env } from "../lib/env";
-import { sessionFromAuthorization } from "../lib/139/client";
+import { sessionFromAuthorization, Yun139Client } from "../lib/139/client";
 import { ensureSession } from "../lib/session";
-import { encryptSecret } from "../lib/security/secrets";
+import { decryptSecret, encryptSecret } from "../lib/security/secrets";
+import { ADMIN_PROVIDER_KEY } from "../lib/admin/storage";
 
 describe("session recovery", () => {
   it("rejects an invalid encryption key as a configuration error", async () => {
@@ -40,5 +41,40 @@ describe("session recovery", () => {
     expect(session.authorization).toBe(configuredAuthorization);
     expect(kv.delete).toHaveBeenCalledWith("session:139:personal-new");
     expect(kv.put).toHaveBeenCalledWith("session:139:personal-new", expect.any(String));
+  });
+
+  it("refreshes expiring Authorization and persists the encrypted value", async () => {
+    const configuredAuthorization = btoa(`pc:13800138000:old-token|x|y|${Math.floor((Date.now() + 60 * 60 * 1000) / 1000)}`);
+    const refreshedAuthorization = btoa(`pc:13800138000:new-token|x|y|${Math.floor((Date.now() + 90 * 24 * 60 * 60 * 1000) / 1000)}`);
+    const currentKey = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    const dataKey = "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC";
+    const values = new Map<string, string>();
+    const kv = {
+      get: vi.fn(async (key: string) => values.get(key) ?? null),
+      put: vi.fn(async (key: string, value: string) => { values.set(key, value); }),
+      delete: vi.fn(async (key: string) => { values.delete(key); }),
+    } as unknown as KVNamespace;
+    const env = {
+      RESOURCE_KV: kv,
+      AUTH_ENCRYPTION_KEY: currentKey,
+      ADMIN_DATA_KEY: dataKey,
+      YUN139_AUTHORIZATION: configuredAuthorization,
+    } as Env;
+    const refresh = vi.spyOn(Yun139Client.prototype, "refreshToken").mockResolvedValue(sessionFromAuthorization(refreshedAuthorization));
+
+    try {
+      const session = await ensureSession(env);
+      expect(session.authorization).toBe(refreshedAuthorization);
+      expect(refresh).toHaveBeenCalledTimes(1);
+
+      const storedProvider = values.get(ADMIN_PROVIDER_KEY);
+      expect(storedProvider).toBeDefined();
+      expect(storedProvider).not.toContain(refreshedAuthorization);
+      const provider = JSON.parse(await decryptSecret(storedProvider!, dataKey, "ADMIN_DATA_KEY")) as { authorization?: string };
+      expect(provider.authorization).toBe(refreshedAuthorization);
+      expect(values.has("session:139:personal-new")).toBe(true);
+    } finally {
+      refresh.mockRestore();
+    }
   });
 });
