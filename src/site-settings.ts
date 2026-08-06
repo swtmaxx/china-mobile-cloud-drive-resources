@@ -19,8 +19,10 @@ export interface SiteSettings {
   version?: number;
 }
 
+export const PAGE_TITLE = "swtmax · 资源站";
+
 export const defaultSiteSettings: SiteSettings = {
-  siteName: import.meta.env.VITE_SITE_NAME || "资源分发站",
+  siteName: import.meta.env.VITE_SITE_NAME || PAGE_TITLE,
   headerTitle: "找到你需要的资源",
   headerSubtitle: "按目录浏览公开资源，文件下载由云端直连。",
   markdown: "",

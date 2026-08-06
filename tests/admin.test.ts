@@ -304,7 +304,7 @@ describe("site personalization APIs", () => {
     const publicResponse = await getSiteSettings(context(new Request("https://example.test/api/site-settings"), env));
     expect(publicResponse.status).toBe(200);
     expect(await publicResponse.json()).toMatchObject({
-      siteName: "资源分发站",
+      siteName: "swtmax · 资源站",
       headerTitle: "找到你需要的资源",
       headerSubtitle: "按目录浏览公开资源，文件下载由云端直连。",
       markdown: "",

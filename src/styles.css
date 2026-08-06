@@ -1235,3 +1235,13 @@ h1 {
     padding: 8px 11px;
   }
 }
+
+/* Keep every project surface square, including the split admin layout. */
+.app-shell *,
+.admin-shell *,
+.app-shell *::before,
+.app-shell *::after,
+.admin-shell *::before,
+.admin-shell *::after {
+  border-radius: 0 !important;
+}

@@ -12,7 +12,7 @@ import {
   Sun,
   X,
 } from "lucide-react";
-import { defaultSiteSettings, normalizeSiteSettings, renderMarkdown, SiteSettings, ThemeMode } from "./site-settings";
+import { defaultSiteSettings, normalizeSiteSettings, PAGE_TITLE, renderMarkdown, SiteSettings, ThemeMode } from "./site-settings";
 
 interface ResourceItem {
   handle: string;
@@ -266,8 +266,8 @@ function App() {
   }, []);
 
   useEffect(() => {
-    document.title = siteSettings.siteName;
-  }, [siteSettings.siteName]);
+    document.title = PAGE_TITLE;
+  }, []);
 
   const loadDirectory = useCallback(async (handle: string) => {
     const sequence = requestSequence.current + 1;

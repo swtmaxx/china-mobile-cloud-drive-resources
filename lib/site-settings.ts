@@ -28,7 +28,7 @@ export interface SiteSettingsState extends SiteSettings {
   version: number;
 }
 
-const DEFAULT_SITE_NAME = "资源分发站";
+const DEFAULT_SITE_NAME = "swtmax · 资源站";
 const DEFAULT_HEADER_TITLE = "找到你需要的资源";
 const DEFAULT_HEADER_SUBTITLE = "按目录浏览公开资源，文件下载由云端直连。";
 const MAX_SHORT_TEXT = 256;
