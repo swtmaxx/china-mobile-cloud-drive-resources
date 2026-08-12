@@ -1371,6 +1371,22 @@ h1 {
   .art-control.art-control-next-button { display: none; }
 }
 
+/* Dedicated watch page */
+.watch-page { width: 100%; margin: 28px 0 0; }
+.watch-topbar { display: flex; align-items: center; gap: 12px; padding: 0 0 14px; }
+.watch-title { min-width: 0; overflow: hidden; color: var(--ink); font-size: 1.05rem; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
+.watch-mode { display: inline-flex; gap: 6px; margin: 0 0 12px; }
+.watch-mode button { border: 2px solid var(--line-strong); padding: 8px 16px; color: var(--muted); background: var(--surface-raised); box-shadow: 3px 3px 0 var(--line); font: inherit; font-weight: 700; cursor: pointer; }
+.watch-mode button:hover { color: var(--ink); }
+.watch-mode button.active { color: #fff; background: var(--accent); border-color: var(--accent); box-shadow: 2px 2px 0 var(--accent); }
+.watch-page .ol-video-player { border: 2px solid var(--line-strong); box-shadow: 6px 6px 0 var(--line); }
+.watch-download-panel { display: grid; place-items: center; gap: 16px; min-height: 60vh; padding: 40px; border: 2px solid var(--line-strong); background: var(--surface); box-shadow: 6px 6px 0 var(--line); }
+.watch-download-panel .ol-video-external { margin-top: 0; }
+.watch-error { color: var(--warm); font-size: .9rem; }
+.watch-below { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 14px; }
+.watch-below .ol-video-select-wrap { display: flex; align-items: center; gap: 8px; flex: 1 1 360px; }
+.watch-below-label { color: var(--muted); font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace; font-size: .6875rem; font-weight: 800; letter-spacing: .04em; white-space: nowrap; }
+
 /* Keep every project surface square, including the split admin layout. */
 .app-shell *,
 .admin-shell *,

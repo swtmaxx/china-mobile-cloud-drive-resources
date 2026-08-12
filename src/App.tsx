@@ -154,6 +154,10 @@ function readDirectory(): string {
   return new URLSearchParams(window.location.search).get("dir") || "root";
 }
 
+function readWatchFile(): string {
+  return new URLSearchParams(window.location.search).get("file") || "";
+}
+
 function formatSize(size: number): string {
   if (!size) {
     return "文件夹";
@@ -298,6 +302,8 @@ function App() {
   const [trail, setTrail] = useState<TrailItem[]>([{ handle: "root", name: "资源根目录" }]);
   const [data, setData] = useState<DirectoryResponse | null>(null);
   const [selected, setSelected] = useState<ResourceItem | null>(null);
+  const [watchFile, setWatchFile] = useState(readWatchFile);
+  const [watchMode, setWatchMode] = useState<"player" | "download">("player");
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [error, setError] = useState("暂时无法读取资源目录。");
   const activeRequest = useRef<AbortController | null>(null);
@@ -447,6 +453,7 @@ function App() {
     const onPopState = () => {
       const nextDirectory = readDirectory();
       setDirectory(nextDirectory);
+      setWatchFile(readWatchFile());
       if (nextDirectory === "root") {
         setTrail([{ handle: "root", name: rootName }]);
       }
@@ -485,6 +492,8 @@ function App() {
 
   function navigate(handle: string, name?: string) {
     const url = new URL(window.location.href);
+    url.searchParams.delete("file");
+    setWatchFile("");
     if (handle === "root") {
       url.searchParams.delete("dir");
       setTrail([{ handle: "root", name: rootName }]);
@@ -500,6 +509,21 @@ function App() {
     }
     window.history.pushState({}, "", url);
     setDirectory(handle);
+  }
+
+  function navigateWatch(handle: string) {
+    const url = new URL(window.location.href);
+    url.searchParams.set("file", handle);
+    window.history.pushState({}, "", url);
+    setSelected(null);
+    setWatchFile(handle);
+  }
+
+  function leaveWatch() {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("file");
+    window.history.pushState({}, "", url);
+    setWatchFile("");
   }
 
   function goBack() {
@@ -544,8 +568,11 @@ function App() {
   }
 
   const selectedIsVideo = selected ? isVideoFile(selected.extension, selected.name) : false;
-  const selectedDanmakuHandle = selected && data
-    ? findDanmakuHandle(selected.name, data.items)
+  const watchItem = watchFile && data
+    ? data.items.find((item) => item.handle === watchFile) || null
+    : null;
+  const watchDanmakuHandle = watchItem
+    ? findDanmakuHandle(watchItem.name, data?.items || [])
     : undefined;
 
   const directoryVideos = useMemo(() => {
@@ -555,24 +582,24 @@ function App() {
     return sortedItems.filter((item) => item.kind === "file" && isVideoFile(item.extension, item.name));
   }, [data, sortedItems]);
 
-  const selectedVideoIndex = selected
-    ? directoryVideos.findIndex((item) => item.handle === selected.handle)
+  const watchVideoIndex = watchItem
+    ? directoryVideos.findIndex((item) => item.handle === watchItem.handle)
     : -1;
 
   function selectVideoByHandle(handle: string) {
     const next = directoryVideos.find((item) => item.handle === handle) || data?.items.find((item) => item.handle === handle);
     if (next) {
-      setSelected(next);
+      navigateWatch(next.handle);
     }
   }
 
   function playAdjacentVideo(offset: number) {
-    if (selectedVideoIndex < 0) {
+    if (watchVideoIndex < 0) {
       return;
     }
-    const next = directoryVideos[selectedVideoIndex + offset];
+    const next = directoryVideos[watchVideoIndex + offset];
     if (next) {
-      setSelected(next);
+      navigateWatch(next.handle);
     }
   }
 
@@ -593,7 +620,7 @@ function App() {
   }
 
   useEffect(() => {
-    if (!selected || !isVideoFile(selected.extension, selected.name)) {
+    if (!watchItem || !isVideoFile(watchItem.extension, watchItem.name)) {
       setDirectPlayUrl("");
       setDirectDanmakuUrl(undefined);
       setDirectUrlError("");
@@ -602,7 +629,7 @@ function App() {
     }
 
     const controller = new AbortController();
-    const danmakuHandle = data ? findDanmakuHandle(selected.name, data.items) : undefined;
+    const danmakuHandle = watchDanmakuHandle;
     setDirectUrlLoading(true);
     setDirectUrlError("");
     setDirectPlayUrl("");
@@ -610,7 +637,7 @@ function App() {
 
     void (async () => {
       try {
-        const playUrl = await resolveDirectUrl(selected.handle, controller.signal);
+        const playUrl = await resolveDirectUrl(watchItem.handle, controller.signal);
         if (controller.signal.aborted) {
           return;
         }
@@ -642,10 +669,10 @@ function App() {
     })();
 
     return () => controller.abort();
-  }, [selected, data]);
+  }, [watchItem, watchDanmakuHandle, data]);
 
   /** External players open the CDN URL when ready; fall back to site download redirect. */
-  const externalPlayUrl = directPlayUrl || (selected ? new URL(downloadUrl(selected.handle), window.location.origin).href : "");
+  const externalPlayUrl = directPlayUrl || (watchItem ? new URL(downloadUrl(watchItem.handle), window.location.origin).href : "");
 
   return (
     <div className="app-shell">
@@ -672,6 +699,114 @@ function App() {
       </header>
 
       <main className="main-content">
+
+        {watchFile ? (
+          <section className="watch-page" aria-label="视频播放">
+            <div className="watch-topbar">
+              <button className="back-button" type="button" onClick={leaveWatch}><ArrowLeft size={16} />返回目录</button>
+              <span className="watch-title" title={watchItem?.name || ""}>{watchItem?.name || "视频播放"}</span>
+            </div>
+
+            <div className="watch-mode" role="group" aria-label="播放方式">
+              <button type="button" className={watchMode === "player" ? "active" : ""} onClick={() => setWatchMode("player")}>视频播放器</button>
+              <button type="button" className={watchMode === "download" ? "active" : ""} onClick={() => setWatchMode("download")}>下载</button>
+            </div>
+
+            {watchMode === "player" ? (
+              <div className="ol-video-player">
+                {status === "loading" && (
+                  <div className="ol-video-status" aria-live="polite">正在读取视频信息…</div>
+                )}
+                {status === "ready" && !watchItem && (
+                  <div className="ol-video-status ol-video-status-error" role="alert">
+                    视频不存在或已失效
+                    <span>请返回目录重新选择。</span>
+                  </div>
+                )}
+                {watchItem && directUrlLoading && (
+                  <div className="ol-video-status" aria-live="polite">正在获取直连地址…</div>
+                )}
+                {watchItem && directUrlError && !directUrlLoading && (
+                  <div className="ol-video-status ol-video-status-error" role="alert">
+                    {directUrlError}
+                    <span>可切换到「下载」用外部播放器打开。</span>
+                  </div>
+                )}
+                {watchItem && !directUrlLoading && directPlayUrl && (
+                  <Player
+                    url={directPlayUrl}
+                    title={watchItem.name}
+                    type={fileExtension(watchItem.name, watchItem.extension)}
+                    danmakuUrl={directDanmakuUrl}
+                    theme={resolvedTheme}
+                    onEnded={handleVideoEnded}
+                    onPrevious={watchVideoIndex > 0 ? () => playAdjacentVideo(-1) : undefined}
+                    onNext={watchVideoIndex >= 0 && watchVideoIndex < directoryVideos.length - 1 ? () => playAdjacentVideo(1) : undefined}
+                  />
+                )}
+              </div>
+            ) : (
+              <div className="watch-download-panel">
+                {watchItem ? (
+                  <>
+                    <a className="primary-button" href={downloadUrl(watchItem.handle)}><Download size={17} />下载文件</a>
+                    <div className="ol-video-external" aria-label="外部播放器">
+                      {EXTERNAL_PLAYERS.map((player) => (
+                        <a
+                          key={player.icon}
+                          className="ol-video-external-link"
+                          href={player.scheme(externalPlayUrl)}
+                          title={player.name}
+                          aria-label={`用 ${player.name} 打开`}
+                        >
+                          <img src={`/images/${player.icon}.webp`} alt="" width={32} height={32} />
+                        </a>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <div className="watch-error" role="alert">视频不存在或已失效，请返回目录重新选择。</div>
+                )}
+              </div>
+            )}
+
+            <div className="watch-below">
+              <label className="ol-video-select-wrap">
+                <span className="watch-below-label">当前目录视频</span>
+                <select
+                  className="ol-video-select"
+                  value={watchItem?.handle || ""}
+                  onChange={(event) => selectVideoByHandle(event.target.value)}
+                  aria-label="选择当前目录视频"
+                  disabled={directoryVideos.length === 0}
+                >
+                  {directoryVideos.map((item) => (
+                    <option key={item.handle} value={item.handle}>{item.name}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="ol-video-auto-next">
+                <input
+                  type="checkbox"
+                  checked={autoNext}
+                  onChange={(event) => toggleAutoNext(event.target.checked)}
+                />
+                <span>自动下一集</span>
+              </label>
+            </div>
+
+            <p className="player-hint">
+              播放直连 139 CDN（不经 Cloudflare 中转媒体）。
+              {watchDanmakuHandle
+                ? directDanmakuUrl
+                  ? " 已挂载同名 XML 弹幕直链。"
+                  : " 同名弹幕直链获取失败时可忽略。"
+                : " 同目录放置同名 `.xml` 可尝试加载弹幕。"}
+              {" "}若浏览器因跨域无法播 FLV，请切换到「下载」用外部播放器打开。
+            </p>
+          </section>
+        ) : (
+          <>
         <section className="intro-band">
           <div>
             {siteSettings.headerTitle && <h1>{siteSettings.headerTitle}</h1>}
@@ -690,97 +825,6 @@ function App() {
         )}
 
         <CustomContent markup={siteSettings.customContent} />
-
-        {selected && selectedIsVideo && (
-          <section className="ol-video-card" aria-label="视频播放器">
-            <div className="ol-video-card-head">
-              <div className="ol-video-card-title-row">
-                <strong>视频播放器</strong>
-                <span className="ol-video-card-meta">
-                  {formatSize(selected.size)} · {formatDate(selected.updatedAt)}
-                  {selectedDanmakuHandle ? " · 弹幕" : ""}
-                </span>
-              </div>
-              <div className="ol-video-card-actions">
-                <a className="primary-button" href={downloadUrl(selected.handle)}><Download size={17} />下载</a>
-                <button className="icon-button" type="button" onClick={() => setSelected(null)} title="关闭预览" aria-label="关闭预览"><X size={18} /></button>
-              </div>
-            </div>
-
-            <div className="ol-video-player">
-              {directUrlLoading && (
-                <div className="ol-video-status" aria-live="polite">正在获取直连地址…</div>
-              )}
-              {directUrlError && !directUrlLoading && (
-                <div className="ol-video-status ol-video-status-error" role="alert">
-                  {directUrlError}
-                  <span>可改用下载或外部播放器打开。</span>
-                </div>
-              )}
-              {!directUrlLoading && directPlayUrl && (
-                <Player
-                  url={directPlayUrl}
-                  title={selected.name}
-                  type={fileExtension(selected.name, selected.extension)}
-                  danmakuUrl={directDanmakuUrl}
-                  theme={resolvedTheme}
-                  onEnded={handleVideoEnded}
-                  onPrevious={selectedVideoIndex > 0 ? () => playAdjacentVideo(-1) : undefined}
-                  onNext={selectedVideoIndex >= 0 && selectedVideoIndex < directoryVideos.length - 1 ? () => playAdjacentVideo(1) : undefined}
-                />
-              )}
-            </div>
-
-            <div className="ol-video-toolbar">
-              <label className="ol-video-select-wrap">
-                <span className="sr-only">选择视频</span>
-                <select
-                  className="ol-video-select"
-                  value={selected.handle}
-                  onChange={(event) => selectVideoByHandle(event.target.value)}
-                  aria-label="选择同目录视频"
-                >
-                  {directoryVideos.map((item) => (
-                    <option key={item.handle} value={item.handle}>{item.name}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="ol-video-auto-next">
-                <input
-                  type="checkbox"
-                  checked={autoNext}
-                  onChange={(event) => toggleAutoNext(event.target.checked)}
-                />
-                <span>自动下一集</span>
-              </label>
-            </div>
-
-            <div className="ol-video-external" aria-label="外部播放器">
-              {EXTERNAL_PLAYERS.map((player) => (
-                <a
-                  key={player.icon}
-                  className="ol-video-external-link"
-                  href={player.scheme(externalPlayUrl)}
-                  title={player.name}
-                  aria-label={`用 ${player.name} 打开`}
-                >
-                  <img src={`/images/${player.icon}.webp`} alt="" width={32} height={32} />
-                </a>
-              ))}
-            </div>
-
-            <p className="ol-video-filename" title={selected.name}>{selected.name}</p>
-            <p className="player-hint">
-              播放直连 139 CDN（不经 Cloudflare 中转媒体）。
-              {selectedDanmakuHandle
-                ? directDanmakuUrl
-                  ? " 已挂载同名 XML 弹幕直链。"
-                  : " 同名弹幕直链获取失败时可忽略。"
-                : " 同目录放置同名 `.xml` 可尝试加载弹幕。"}
-              {" "}若浏览器因跨域无法播 FLV，请用下方外部播放器或下载。
-            </p>
-          </section>
-        )}
 
         <section className="workspace" aria-label="资源目录">
           <div className="toolbar">
@@ -907,6 +951,8 @@ function App() {
           <button className="back-button" type="button" onClick={goBack} disabled={!data?.current.parentHandle}><ArrowLeft size={16} />返回上级</button>
           <span>目录内容实时同步，下载链接按需生成</span>
         </div>
+          </>
+        )}
       </main>
     </div>
   );
