@@ -1364,6 +1364,9 @@ h1 {
   .ol-video-card-head { align-items: flex-start; flex-direction: column; }
   .ol-video-card-actions { width: 100%; justify-content: flex-end; }
   .ol-video-player .player-container, .ol-player-box { height: 48vh; min-height: 240px; }
+  .watch-topbar { flex-wrap: wrap; }
+  .watch-mode { flex-wrap: wrap; }
+  .watch-below .ol-video-select-wrap { flex-basis: 100%; }
 }
 
 @media (max-width: 440px) {
