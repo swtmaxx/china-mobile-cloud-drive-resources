@@ -12,6 +12,7 @@ import {
   listDirectoryItems,
   publicCacheKey,
   resolveDirectory,
+  resolvePathDirectory,
 } from "../../lib/resources";
 import { invalidResourceResponse, jsonResponse, publicError } from "../../lib/http";
 
@@ -23,16 +24,19 @@ interface FunctionContext {
 export const onRequestGet = async ({ request, env }: FunctionContext): Promise<Response> => {
   try {
     const configuredEnv = await providerEnv(env);
-    const dir = new URL(request.url).searchParams.get("dir") || "root";
+    const url = new URL(request.url);
+    const dir = url.searchParams.get("dir") || "root";
+    const pathParam = url.searchParams.get("path");
     const secret = handleSecret(configuredEnv);
     const rules = await readResourceRules(env);
     const displayRootState = await readDisplayRoot(env);
-    const target = await resolveDirectory(dir, configuredEnv, secret, displayRootState.root);
+    const providerVersion = await readNumericValue(env, PROVIDER_CONFIG_VERSION_KEY, 0);
+    const target = pathParam !== null
+      ? await resolvePathDirectory(pathParam, configuredEnv, secret, rules, displayRootState.root, providerVersion)
+      : await resolveDirectory(dir, configuredEnv, secret, displayRootState.root);
     if (!target || (target.payload && !(await isResourceVisible(target.payload, configuredEnv, secret, rules, displayRootState.root)))) {
       return invalidResourceResponse();
     }
-
-    const providerVersion = await readNumericValue(env, PROVIDER_CONFIG_VERSION_KEY, 0);
     const cacheKey = publicCacheKey(target, providerVersion, rules.version, displayRootState.version);
     const cached = await env.RESOURCE_KV.get(cacheKey);
     if (cached) {
@@ -49,7 +53,7 @@ export const onRequestGet = async ({ request, env }: FunctionContext): Promise<R
 
     await ensureSession(configuredEnv);
     const items = await listDirectoryItems(configuredEnv, target, providerVersion);
-    const payload = await buildDirectoryResponse(configuredEnv, target, items, secret, rules.hiddenIds, target.scopeRootId);
+    const payload = await buildDirectoryResponse(configuredEnv, target, items, secret, rules.hiddenIds, target.scopeRootId, displayRootState.root?.name || "资源根目录");
     await env.RESOURCE_KV.put(cacheKey, JSON.stringify(payload), { expirationTtl: cacheTtl(configuredEnv) });
     return jsonResponse(payload, {
       headers: {

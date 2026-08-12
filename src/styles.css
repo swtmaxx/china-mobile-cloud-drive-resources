@@ -102,7 +102,7 @@ h1 { max-width: 700px; margin-bottom: 10px; font-size: 39px; line-height: 1.12; 
 .toolbar-meta { flex: 0 0 auto; color: var(--muted); font-size: 12px; }
 
 .resource-list { width: 100%; }
-.resource-row { min-height: 69px; display: grid; grid-template-columns: minmax(250px, 1fr) 100px 110px 112px 84px; align-items: center; gap: 14px; padding: 0 18px 0 20px; border-bottom: 1px solid #eeeeea; transition: background 120ms ease; }
+.resource-row { min-height: 69px; display: grid; grid-template-columns: minmax(250px, 1fr) 110px 112px 84px; align-items: center; gap: 14px; padding: 0 18px 0 20px; border-bottom: 1px solid #eeeeea; transition: background 120ms ease; }
 .resource-row:last-child { border-bottom: 0; }
 .resource-row:hover, .resource-row.selected { background: #fcf8f5; }
 
@@ -1374,6 +1374,24 @@ h1 {
   .art-control.art-control-next-button { display: none; }
 }
 
+/* File type icons */
+.resource-icon.video { color: #8e4fd0; background: #f1e9fb; }
+.resource-icon.image { color: #19734a; background: #e0f2e8; }
+.resource-icon.audio { color: #c2410c; background: #ffe9d6; }
+.resource-icon.archive { color: #a16207; background: #fbf0d3; }
+.resource-icon.pdf { color: #b91c1c; background: #fde3e3; }
+.resource-icon.code { color: #1d4ed8; background: #dbe7fe; }
+.resource-icon.sheet { color: #047857; background: #d9f2e7; }
+.resource-icon.text { color: #475569; background: #e8edf3; }
+:root[data-theme="dark"] .resource-icon.video { color: #c9a5f2; background: #3b2a55; }
+:root[data-theme="dark"] .resource-icon.image { color: #7fd6a8; background: #1e3a2c; }
+:root[data-theme="dark"] .resource-icon.audio { color: #ffb27a; background: #4a2c1a; }
+:root[data-theme="dark"] .resource-icon.archive { color: #f2ce7d; background: #453719; }
+:root[data-theme="dark"] .resource-icon.pdf { color: #ff9d9d; background: #4a1f1f; }
+:root[data-theme="dark"] .resource-icon.code { color: #a9c3ff; background: #263653; }
+:root[data-theme="dark"] .resource-icon.sheet { color: #6ee7b7; background: #1f3d33; }
+:root[data-theme="dark"] .resource-icon.text { color: #c7d0ca; background: #27322d; }
+
 /* Dedicated watch page */
 .watch-page { width: 100%; margin: 28px 0 0; }
 .watch-topbar { display: flex; align-items: center; gap: 12px; padding: 0 0 14px; }
@@ -1383,7 +1401,10 @@ h1 {
 .watch-mode button:hover { color: var(--ink); }
 .watch-mode button.active { color: #fff; background: var(--accent); border-color: var(--accent); box-shadow: 2px 2px 0 var(--accent); }
 .watch-page .ol-video-player { border: 2px solid var(--line-strong); box-shadow: 6px 6px 0 var(--line); }
-.watch-download-panel { display: grid; place-items: center; gap: 16px; min-height: 60vh; padding: 40px; border: 2px solid var(--line-strong); background: var(--surface); box-shadow: 6px 6px 0 var(--line); }
+.watch-download-panel { display: grid; place-items: center; align-content: center; gap: 16px; min-height: 40vh; padding: 40px; border: 2px solid var(--line-strong); background: var(--surface); box-shadow: 6px 6px 0 var(--line); }
+.watch-download-info { display: grid; gap: 8px; max-width: 100%; text-align: center; }
+.watch-download-info strong { overflow: hidden; color: var(--ink); font-size: 1rem; text-overflow: ellipsis; white-space: nowrap; }
+.watch-download-info span { color: var(--muted); font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace; font-size: .75rem; }
 .watch-download-panel .ol-video-external { margin-top: 0; }
 .watch-error { color: var(--warm); font-size: .9rem; }
 .watch-below { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 14px; }

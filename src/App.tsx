@@ -7,6 +7,14 @@ import {
   ChevronRight,
   Download,
   File,
+  FileArchive,
+  FileCode,
+  FileImage,
+  FileMusic,
+  FileType,
+  FileSpreadsheet,
+  FileText,
+  Film,
   Folder,
   HardDriveDownload,
   Moon,
@@ -14,6 +22,7 @@ import {
   Sun,
   X,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { defaultSiteSettings, normalizeSiteSettings, PAGE_TITLE, renderMarkdown, SiteSettings, ThemeMode } from "./site-settings";
 import Player, { fileExtension, findDanmakuHandle, isVideoFile } from "./Player";
 
@@ -33,6 +42,7 @@ interface DirectoryResponse {
     parentHandle?: string;
     parentName?: string;
   };
+  rootName: string;
   items: ResourceItem[];
   cachedAt: string;
 }
@@ -151,11 +161,43 @@ function cssBackgroundImage(url: string): string {
 }
 
 function readDirectory(): string {
-  return new URLSearchParams(window.location.search).get("dir") || "root";
+  return new URLSearchParams(window.location.search).get("path") || "/";
 }
 
 function readWatchFile(): string {
   return new URLSearchParams(window.location.search).get("file") || "";
+}
+
+function iconFor(item: ResourceItem): { icon: LucideIcon; className: string } {
+  if (item.kind === "folder") {
+    return { icon: Folder, className: "folder" };
+  }
+  const ext = (item.extension || "").toLowerCase();
+  if (["mp4", "mkv", "webm", "mov", "m4v", "flv", "m2ts", "ts", "avi", "wmv", "rmvb", "mpg", "mpeg", "3gp", "ogv", "ogg"].includes(ext)) {
+    return { icon: Film, className: "video" };
+  }
+  if (["jpg", "jpeg", "png", "gif", "webp", "bmp", "svg", "heic", "avif", "ico"].includes(ext)) {
+    return { icon: FileImage, className: "image" };
+  }
+  if (["mp3", "wav", "flac", "aac", "m4a", "ogg", "opus", "wma", "ape", "amr"].includes(ext)) {
+    return { icon: FileMusic, className: "audio" };
+  }
+  if (["zip", "rar", "7z", "tar", "gz", "bz2", "xz", "zst", "iso", "cab"].includes(ext)) {
+    return { icon: FileArchive, className: "archive" };
+  }
+  if (ext === "pdf") {
+    return { icon: FileType, className: "pdf" };
+  }
+  if (["js", "ts", "tsx", "jsx", "py", "go", "rs", "java", "c", "cpp", "h", "hpp", "html", "css", "scss", "less", "json", "xml", "yaml", "yml", "toml", "ini", "sh", "bat", "ps1", "sql", "php", "rb", "swift", "kt", "vue", "svelte", "md", "markdown", "conf", "cfg", "env"].includes(ext)) {
+    return { icon: FileCode, className: "code" };
+  }
+  if (["xls", "xlsx", "csv", "tsv", "ods"].includes(ext)) {
+    return { icon: FileSpreadsheet, className: "sheet" };
+  }
+  if (["txt", "doc", "docx", "ppt", "pptx", "odt", "rtf", "log", "srt", "ass", "vtt"].includes(ext)) {
+    return { icon: FileText, className: "text" };
+  }
+  return { icon: File, className: "file" };
 }
 
 function formatSize(size: number): string {
@@ -214,18 +256,6 @@ function readAutoNext(): boolean {
     return true;
   }
 }
-
-/** OpenList-style external player shortcuts (Windows-first subset). */
-const EXTERNAL_PLAYERS = [
-  { icon: "potplayer", name: "PotPlayer", scheme: (url: string) => `potplayer://${url}` },
-  { icon: "vlc", name: "VLC", scheme: (url: string) => `vlc://${url}` },
-  { icon: "mpv", name: "mpv", scheme: (url: string) => `mpv://${encodeURIComponent(url)}` },
-  { icon: "nplayer", name: "nPlayer", scheme: (url: string) => `nplayer-${url}` },
-  { icon: "iina", name: "IINA", scheme: (url: string) => `iina://weblink?url=${encodeURIComponent(url)}` },
-  { icon: "infuse", name: "Infuse", scheme: (url: string) => `infuse://x-callback-url/play?url=${encodeURIComponent(url)}` },
-  { icon: "mxplayer", name: "MX Player", scheme: (url: string) => `intent:${url}#Intent;package=com.mxtech.videoplayer.ad;end` },
-  { icon: "android", name: "Android", scheme: (url: string) => `intent:${url}#Intent;type=video/*;end` },
-] as const;
 
 function errorMessage(payload: ApiErrorPayload | null, fallback: string): string {
   switch (payload?.code) {
@@ -299,7 +329,6 @@ function App() {
   const [directory, setDirectory] = useState(readDirectory);
   const [siteSettings, setSiteSettings] = useState<SiteSettings>(defaultSiteSettings);
   const [rootName, setRootName] = useState("资源根目录");
-  const [trail, setTrail] = useState<TrailItem[]>([{ handle: "root", name: "资源根目录" }]);
   const [data, setData] = useState<DirectoryResponse | null>(null);
   const [selected, setSelected] = useState<ResourceItem | null>(null);
   const [watchFile, setWatchFile] = useState(readWatchFile);
@@ -403,7 +432,7 @@ function App() {
     setError("");
     setSelected(null);
     try {
-      const response = await fetch(`/api/resources?dir=${encodeURIComponent(handle)}`, {
+      const response = await fetch(`/api/resources?path=${encodeURIComponent(handle)}`, {
         headers: { Accept: "application/json" },
         signal: controller.signal,
       });
@@ -418,17 +447,7 @@ function App() {
         throw new Error("资源目录返回格式不正确。");
       }
       setData(payload);
-      setTrail((previous) => {
-        if (handle === "root") {
-          setRootName(payload.current.name);
-          return [{ handle: "root", name: payload.current.name }];
-        }
-        const existingIndex = previous.findIndex((item) => item.handle === payload.current.handle);
-        if (existingIndex >= 0) {
-          return [...previous.slice(0, existingIndex), { handle: payload.current.handle, name: payload.current.name }];
-        }
-        return [...previous, { handle: payload.current.handle, name: payload.current.name }];
-      });
+      setRootName(payload.rootName || payload.current.name);
       setStatus("ready");
     } catch (requestError) {
       if (sequence !== requestSequence.current) {
@@ -454,9 +473,6 @@ function App() {
       const nextDirectory = readDirectory();
       setDirectory(nextDirectory);
       setWatchFile(readWatchFile());
-      if (nextDirectory === "root") {
-        setTrail([{ handle: "root", name: rootName }]);
-      }
     };
     window.addEventListener("popstate", onPopState);
     return () => {
@@ -483,68 +499,55 @@ function App() {
     });
   }
 
-  const currentTrail = useMemo(() => {
-    if (directory === "root") {
-      return [{ handle: "root", name: rootName }];
+  const pathSegments = useMemo(() => {
+    const segments = directory.split("/").filter(Boolean);
+    const items: TrailItem[] = [{ handle: "/", name: rootName }];
+    let accumulated = "";
+    for (const segment of segments) {
+      accumulated += `/${segment}`;
+      items.push({ handle: accumulated, name: segment });
     }
-    return trail;
-  }, [directory, rootName, trail]);
+    return items;
+  }, [directory, rootName]);
 
-  function navigate(handle: string, name?: string) {
-    const url = new URL(window.location.href);
-    url.searchParams.delete("file");
-    setWatchFile("");
-    if (handle === "root") {
-      url.searchParams.delete("dir");
-      setTrail([{ handle: "root", name: rootName }]);
-    } else {
-      url.searchParams.set("dir", handle);
-      setTrail((previous) => {
-        const existingIndex = previous.findIndex((item) => item.handle === handle);
-        if (existingIndex >= 0) {
-          return previous.slice(0, existingIndex + 1);
-        }
-        return [...previous, { handle, name: name || "当前目录" }];
-      });
+  function buildDirectoryUrl(path: string, extra?: Array<[string, string]>): string {
+    const parts: string[] = [];
+    if (path && path !== "/") {
+      const encodedPath = path.split("/").filter(Boolean).map((segment) => encodeURIComponent(segment)).join("/");
+      parts.push(`path=/${encodedPath}`);
     }
+    for (const [key, value] of extra || []) {
+      parts.push(`${key}=${encodeURIComponent(value)}`);
+    }
+    return parts.length > 0 ? `/?${parts.join("&")}` : "/";
+  }
+
+  function navigate(path: string) {
+    setWatchFile("");
+    const url = buildDirectoryUrl(path);
     window.history.pushState({}, "", url);
-    setDirectory(handle);
+    setDirectory(path && path !== "/" ? path : "/");
   }
 
   function navigateWatch(handle: string) {
-    const url = new URL(window.location.href);
-    url.searchParams.set("file", handle);
+    const url = buildDirectoryUrl(directory, [["file", handle]]);
     window.history.pushState({}, "", url);
     setSelected(null);
     setWatchFile(handle);
   }
 
   function leaveWatch() {
-    const url = new URL(window.location.href);
-    url.searchParams.delete("file");
+    const url = buildDirectoryUrl(directory);
     window.history.pushState({}, "", url);
     setWatchFile("");
   }
 
   function goBack() {
-    const parentHandle = data?.current.parentHandle;
-    if (!parentHandle) {
+    if (directory === "/") {
       return;
     }
-    if (parentHandle === "root") {
-      navigate("root");
-      return;
-    }
-    const parent = currentTrail.find((item) => item.handle === parentHandle);
-    if (parent) {
-      navigate(parent.handle, parent.name);
-      return;
-    }
-    const url = new URL(window.location.href);
-    url.searchParams.set("dir", parentHandle);
-    window.history.pushState({}, "", url);
-    setTrail([{ handle: "root", name: "资源根目录" }, { handle: parentHandle, name: data?.current.parentName || "上一级目录" }]);
-    setDirectory(parentHandle);
+    const parentPath = directory.slice(0, directory.lastIndexOf("/")) || "/";
+    navigate(parentPath);
   }
 
   const sortedItems = useMemo(() => {
@@ -568,6 +571,7 @@ function App() {
   }
 
   const selectedIsVideo = selected ? isVideoFile(selected.extension, selected.name) : false;
+  const selectedIcon = selected ? iconFor(selected) : null;
   const watchItem = watchFile && data
     ? data.items.find((item) => item.handle === watchFile) || null
     : null;
@@ -672,14 +676,13 @@ function App() {
   }, [watchItem, watchDanmakuHandle, data]);
 
   /** External players open the CDN URL when ready; fall back to site download redirect. */
-  const externalPlayUrl = directPlayUrl || (watchItem ? new URL(downloadUrl(watchItem.handle), window.location.origin).href : "");
 
   return (
     <div className="app-shell">
       <CustomHead markup={siteSettings.customHead} />
       <header className="topbar">
         <div className="topbar-inner">
-          <a className="brand" href="/" onClick={(event) => { event.preventDefault(); navigate("root"); }}>
+          <a className="brand" href="/" onClick={(event) => { event.preventDefault(); navigate("/"); }}>
             <span className="brand-mark"><HardDriveDownload size={19} strokeWidth={2.2} /></span>
             <span>{siteSettings.siteName}</span>
           </a>
@@ -749,20 +752,11 @@ function App() {
               <div className="watch-download-panel">
                 {watchItem ? (
                   <>
-                    <a className="primary-button" href={downloadUrl(watchItem.handle)}><Download size={17} />下载文件</a>
-                    <div className="ol-video-external" aria-label="外部播放器">
-                      {EXTERNAL_PLAYERS.map((player) => (
-                        <a
-                          key={player.icon}
-                          className="ol-video-external-link"
-                          href={player.scheme(externalPlayUrl)}
-                          title={player.name}
-                          aria-label={`用 ${player.name} 打开`}
-                        >
-                          <img src={`/images/${player.icon}.webp`} alt="" width={32} height={32} />
-                        </a>
-                      ))}
+                    <div className="watch-download-info">
+                      <strong>{watchItem.name}</strong>
+                      <span>{formatSize(watchItem.size)} · {formatDate(watchItem.updatedAt)} · {watchItem.extension?.toUpperCase() || "文件"}</span>
                     </div>
+                    <a className="primary-button" href={downloadUrl(watchItem.handle)}><Download size={17} />下载文件</a>
                   </>
                 ) : (
                   <div className="watch-error" role="alert">视频不存在或已失效，请返回目录重新选择。</div>
@@ -829,10 +823,10 @@ function App() {
         <section className="workspace" aria-label="资源目录">
           <div className="toolbar">
             <div className="breadcrumbs" aria-label="当前位置">
-              {currentTrail.map((item, index) => (
+              {pathSegments.map((item, index) => (
                 <span className="breadcrumb-item" key={item.handle}>
                   {index > 0 && <ChevronRight size={15} />}
-                  <button type="button" onClick={() => navigate(item.handle, item.name)} className={index === currentTrail.length - 1 ? "current" : ""}>
+                  <button type="button" onClick={() => navigate(item.handle)} className={index === pathSegments.length - 1 ? "current" : ""}>
                     {item.name}
                   </button>
                 </span>
@@ -872,7 +866,6 @@ function App() {
                     <span>名称</span>
                     {sortIndicator("name")}
                   </button>
-                  <span className="resource-kind head-label">类型</span>
                   <button
                     type="button"
                     className={`${sortHeaderClass("size")} resource-size`}
@@ -893,37 +886,38 @@ function App() {
                   </button>
                   <span className="head-action-spacer" aria-hidden="true" />
                 </div>
-                {sortedItems.map((item) => (
-                  <div className={`resource-row ${selected?.handle === item.handle ? "selected" : ""}`} key={item.handle} role="listitem">
-                    <button className="resource-main" type="button" onClick={() => {
-                        if (item.kind === "folder") {
-                          navigate(item.handle, item.name);
-                        } else if (isVideoFile(item.extension, item.name)) {
-                          navigateWatch(item.handle);
-                        } else {
-                          setSelected(item);
-                        }
-                      }}>
-                      <span className={`resource-icon ${item.kind}`}>
-                        {item.kind === "folder" ? <Folder size={20} /> : <File size={20} />}
-                      </span>
-                      <span className="resource-name">{item.name}</span>
-                    </button>
-                    <span className="resource-kind">{item.kind === "folder" ? "文件夹" : item.extension?.toUpperCase() || "文件"}</span>
-                    <span className="resource-size">{formatSize(item.size)}</span>
-                    <span className="resource-date">{formatDate(item.updatedAt)}</span>
-                    {item.kind === "file" ? (
-                      <a className="download-button" href={downloadUrl(item.handle)} title={`下载 ${item.name}`} aria-label={`下载 ${item.name}`}>
-                        <Download size={17} />
-                        <span>下载</span>
-                      </a>
-                    ) : (
-                      <button className="row-arrow" type="button" onClick={() => navigate(item.handle, item.name)} title={`打开 ${item.name}`} aria-label={`打开 ${item.name}`}>
-                        <ChevronRight size={18} />
+                {sortedItems.map((item) => {
+                  const itemIcon = iconFor(item);
+                  const IconComponent = itemIcon.icon;
+                  const folderPath = directory === "/" ? `/${item.name}` : `${directory}/${item.name}`;
+                  return (
+                    <div className={`resource-row ${selected?.handle === item.handle ? "selected" : ""}`} key={item.handle} role="listitem">
+                      <button className="resource-main" type="button" onClick={() => {
+                          if (item.kind === "folder") {
+                            navigate(folderPath);
+                          } else if (isVideoFile(item.extension, item.name)) {
+                            navigateWatch(item.handle);
+                          } else {
+                            setSelected(item);
+                          }
+                        }}>
+                        <span className={`resource-icon ${itemIcon.className}`}>
+                          <IconComponent size={20} />
+                        </span>
+                        <span className="resource-name">{item.name}</span>
                       </button>
-                    )}
-                  </div>
-                ))}
+                      <span className="resource-size">{formatSize(item.size)}</span>
+                      <span className="resource-date">{formatDate(item.updatedAt)}</span>
+                      {item.kind === "folder" ? (
+                        <button className="row-arrow" type="button" onClick={() => navigate(folderPath)} title={`打开 ${item.name}`} aria-label={`打开 ${item.name}`}>
+                          <ChevronRight size={18} />
+                        </button>
+                      ) : (
+                        <span aria-hidden="true" />
+                      )}
+                    </div>
+                  );
+                })}
               </div>
               {sortedItems.length === 0 && (
                 <div className="state-panel empty-panel">
@@ -940,7 +934,7 @@ function App() {
 
         {selected && !selectedIsVideo && (
           <aside className="detail-panel" aria-label="资源详情">
-            <div className="detail-icon"><File size={25} /></div>
+            <div className="detail-icon">{selectedIcon && <selectedIcon.icon size={25} />}</div>
             <div className="detail-content">
               <p className="eyebrow">FILE DETAILS</p>
               <h2>{selected.name}</h2>
@@ -956,7 +950,7 @@ function App() {
         )}
 
         <div className="bottom-actions">
-          <button className="back-button" type="button" onClick={goBack} disabled={!data?.current.parentHandle}><ArrowLeft size={16} />返回上级</button>
+          <button className="back-button" type="button" onClick={goBack} disabled={directory === "/"}><ArrowLeft size={16} />返回上级</button>
           <span>目录内容实时同步，下载链接按需生成</span>
         </div>
           </>

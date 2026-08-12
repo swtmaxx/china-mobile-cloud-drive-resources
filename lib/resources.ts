@@ -78,6 +78,64 @@ export async function resolveDirectory(dir: string, env: Env, secret: string, di
   };
 }
 
+export async function resolvePathDirectory(
+  path: string,
+  env: Env,
+  secret: string,
+  rules: ResourceRules,
+  displayRoot: DisplayRoot | null,
+  providerVersion: number,
+): Promise<DirectoryTarget | null> {
+  const scopeRoot = displayScopeId(env, displayRoot);
+  const rootTarget: DirectoryTarget = {
+    id: displayRoot?.fileId || rootId(env),
+    name: displayRoot?.name || "资源根目录",
+    handle: "root",
+    scopeRootId: scopeRoot,
+  };
+  const segments = path
+    .split("/")
+    .map((segment) => decodeURIComponent(segment))
+    .filter((segment) => segment.length > 0);
+  if (segments.length === 0) {
+    return rootTarget;
+  }
+
+  let target = rootTarget;
+  let parentHandle: string | undefined;
+  for (const name of segments) {
+    const items = await listDirectoryItems(env, target, providerVersion);
+    const folder = items.find((item) => item.kind === "folder" && item.name === name);
+    if (!folder || rules.hiddenIds.has(folder.id)) {
+      return null;
+    }
+    const expiresAt = Date.now() + handleTtl(env) * 1000;
+    const payload: ResourceHandlePayload = {
+      version: 2,
+      kind: "folder",
+      fileId: folder.id,
+      rootId: rootId(env),
+      name: folder.name,
+      parentHandle,
+      parentName: target.name,
+      scopeRootId: scopeRoot,
+      expiresAt,
+    };
+    const handle = await createResourceHandle(payload, secret);
+    target = {
+      id: folder.id,
+      name: folder.name,
+      handle,
+      parentHandle,
+      parentName: target.name,
+      scopeRootId: scopeRoot,
+      payload,
+    };
+    parentHandle = handle;
+  }
+  return target;
+}
+
 export async function isResourceVisible(
   payload: ResourceHandlePayload,
   env: Env,
@@ -139,6 +197,7 @@ export async function buildDirectoryResponse(
   secret: string,
   hiddenIds?: Set<string>,
   scopeRootId = target.scopeRootId || rootId(env),
+  rootName = "资源根目录",
 ): Promise<DirectoryResponse> {
   const expiresAt = Date.now() + handleTtl(env) * 1000;
   const responseItems = await Promise.all(items
@@ -171,6 +230,7 @@ export async function buildDirectoryResponse(
       parentHandle: target.parentHandle,
       parentName: target.parentName,
     },
+    rootName,
     items: responseItems,
     cachedAt: new Date().toISOString(),
   };

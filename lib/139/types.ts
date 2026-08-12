@@ -93,6 +93,7 @@ export interface DirectoryResponse {
     parentHandle?: string;
     parentName?: string;
   };
+  rootName: string;
   items: Array<{
     handle: string;
     kind: "folder" | "file";
