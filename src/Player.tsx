@@ -208,7 +208,11 @@ export default function Player({
           antiOverlap: true,
           synchronousPlayback: true,
           theme: theme === "dark" ? "dark" : "light",
-          heatmap: true,
+          heatmap: {
+            opacity: 0.75,
+            minHeight: 14,
+            scale: 0.4,
+          },
           emitter: false,
         }),
       ];

@@ -7,3 +7,4 @@ dist/
 .dev.vars
 coverage/
 .cf-local*.log
+.preview*.log
