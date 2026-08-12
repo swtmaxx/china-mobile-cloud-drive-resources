@@ -68,6 +68,7 @@ export default function Player({
   onNext,
 }: PlayerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<Artplayer | null>(null);
   const flvPlayerRef = useRef<mpegts.Player | null>(null);
   const onEndedRef = useRef(onEnded);
@@ -87,6 +88,7 @@ export default function Player({
     }
 
     setError(null);
+    stageRef.current?.style.removeProperty("height");
     let destroyed = false;
     const mediaType = (type || "").toLowerCase();
 
@@ -221,22 +223,48 @@ export default function Player({
     const player = new Artplayer(option);
     playerRef.current = player;
 
-    // Keep a fixed 60vh stage (OpenList Box h="60vh"). Calling autoHeight on FLV/proxy
-    // streams often collapses the container and clips the progress/control bar.
+    // Auto-fit the stage to the video's native aspect ratio once metadata is known,
+    // clamped by the CSS min/max heights. Falls back to the fixed CSS height until then.
+    const applyAutoHeight = () => {
+      const stage = stageRef.current;
+      if (!stage) {
+        return;
+      }
+      const videoWidth = player.video.videoWidth;
+      const videoHeight = player.video.videoHeight;
+      if (!videoWidth || !videoHeight) {
+        return;
+      }
+      let target = Math.round((stage.clientWidth / videoWidth) * videoHeight);
+      if (!Number.isFinite(target) || target <= 0) {
+        return;
+      }
+      const viewportMax = Math.max(320, window.innerHeight - 200);
+      target = Math.min(Math.max(target, 240), viewportMax);
+      stage.style.height = `${target}px`;
+    };
+    const resetAutoHeight = () => {
+      stageRef.current?.style.removeProperty("height");
+    };
+    player.on("video:loadedmetadata", applyAutoHeight);
+    player.on("resize", applyAutoHeight);
+    player.on("window:resize", applyAutoHeight);
     player.on("ready", () => {
       try {
         player.controls.show = true;
       } catch {
         // Ignore if controls API is unavailable.
       }
-    });
-    player.on("video:ended", () => {
-      onEndedRef.current?.();
+      applyAutoHeight();
     });
     player.on("error", () => {
+      resetAutoHeight();
       if (!destroyed) {
         setError("视频加载失败，可尝试直接下载后本地播放。");
       }
+    });
+    player.on("video:ended", () => {
+      onEndedRef.current?.();
     });
 
     return () => {
@@ -257,7 +285,7 @@ export default function Player({
   }, [url, title, type, danmakuUrl, theme]);
 
   return (
-    <div className="player-container ol-player-box">
+    <div className="player-container ol-player-box" ref={stageRef}>
       <div className="player-mount" ref={containerRef} />
       {error && <div className="player-error" role="alert">{error}</div>}
     </div>
