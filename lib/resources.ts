@@ -85,6 +85,7 @@ export async function resolvePathDirectory(
   rules: ResourceRules,
   displayRoot: DisplayRoot | null,
   providerVersion: number,
+  forceRefresh = false,
 ): Promise<DirectoryTarget | null> {
   const scopeRoot = displayScopeId(env, displayRoot);
   const rootTarget: DirectoryTarget = {
@@ -104,7 +105,7 @@ export async function resolvePathDirectory(
   let target = rootTarget;
   let parentHandle: string | undefined;
   for (const name of segments) {
-    const items = await listDirectoryItems(env, target, providerVersion);
+    const items = await listDirectoryItems(env, target, providerVersion, forceRefresh);
     const folder = items.find((item) => item.kind === "folder" && item.name === name);
     if (!folder || rules.hiddenIds.has(folder.id)) {
       return null;
@@ -170,17 +171,19 @@ export function publicCacheKey(target: DirectoryTarget, providerVersion: number,
   return `resource-list:v4:${providerVersion}:${rulesVersion}:${displayRootVersion}:${base64UrlEncode(target.id)}`;
 }
 
-async function listRawItems(env: Env, target: DirectoryTarget, providerVersion: number): Promise<ResourceItem[]> {
+async function listRawItems(env: Env, target: DirectoryTarget, providerVersion: number, forceRefresh = false): Promise<ResourceItem[]> {
   const key = rawCacheKey(target, providerVersion);
-  const cached = await env.RESOURCE_KV.get(key);
-  if (cached) {
-    try {
-      const parsed = JSON.parse(cached) as unknown;
-      if (Array.isArray(parsed)) {
-        return parsed as ResourceItem[];
+  if (!forceRefresh) {
+    const cached = await env.RESOURCE_KV.get(key);
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached) as unknown;
+        if (Array.isArray(parsed)) {
+          return parsed as ResourceItem[];
+        }
+      } catch {
+        await env.RESOURCE_KV.delete(key);
       }
-    } catch {
-      await env.RESOURCE_KV.delete(key);
     }
   }
   const session = await ensureSession(env);
@@ -236,6 +239,6 @@ export async function buildDirectoryResponse(
   };
 }
 
-export async function listDirectoryItems(env: Env, target: DirectoryTarget, providerVersion: number): Promise<ResourceItem[]> {
-  return listRawItems(env, target, providerVersion);
+export async function listDirectoryItems(env: Env, target: DirectoryTarget, providerVersion: number, forceRefresh = false): Promise<ResourceItem[]> {
+  return listRawItems(env, target, providerVersion, forceRefresh);
 }

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Env } from "../lib/env";
 import type { ResourceRules } from "../lib/resource-rules";
 import { resolvePathDirectory } from "../lib/resources";
+import { base64UrlEncode } from "../lib/139/crypto";
 
 const secret = "A".repeat(43);
 const authorization = btoa(`pc:13800138000:token|x|y|${Date.now() + 90 * 24 * 60 * 60 * 1000}`);
@@ -27,8 +28,8 @@ function listResponse(items: Array<{ fileId: string; name: string; type: string;
   return new Response(JSON.stringify({ success: true, data: { items, nextPageCursor: "" } }), { status: 200 });
 }
 
-function mock139(foldersByParent: Record<string, Array<{ fileId: string; name: string; type: string }>>): void {
-  vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+function mock139(foldersByParent: Record<string, Array<{ fileId: string; name: string; type: string }>>): ReturnType<typeof vi.spyOn> {
+  return vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
     const url = String(input);
     if (url.includes("qryRoutePolicy")) {
       return new Response(JSON.stringify({
@@ -86,5 +87,32 @@ describe("path directory resolution", () => {
 
     const hiddenRules: ResourceRules = { hiddenIds: new Set(["folder-secret"]), version: 1 };
     expect(await resolvePathDirectory("/Secret", env, secret, hiddenRules, null, 0)).toBeNull();
+  });
+
+  it("force refresh bypasses the raw directory cache", async () => {
+    const kv = new Map<string, string>();
+    kv.set(`admin-resource-list:v1:0:${base64UrlEncode("/")}`, JSON.stringify([
+      { id: "folder-old", name: "Old", kind: "folder", size: 0 },
+    ]));
+    const envWithKv = {
+      ...env,
+      RESOURCE_KV: {
+        get: async (key: string) => kv.get(key) ?? null,
+        put: async (key: string, value: string) => { kv.set(key, value); },
+        delete: async (key: string) => { kv.delete(key); },
+      },
+    } as unknown as Env;
+
+    const fetchSpy = mock139({ "/": [{ fileId: "folder-new", name: "New", type: "folder" }] });
+
+    // Cached root listing is used without a network round trip.
+    const cachedTarget = await resolvePathDirectory("/Old", envWithKv, secret, rules, null, 0);
+    expect(cachedTarget?.id).toBe("folder-old");
+    expect(fetchSpy).not.toHaveBeenCalled();
+
+    // forceRefresh re-lists from the provider and finds the new folder.
+    const freshTarget = await resolvePathDirectory("/New", envWithKv, secret, rules, null, 0, true);
+    expect(freshTarget?.id).toBe("folder-new");
+    expect(fetchSpy).toHaveBeenCalled();
   });
 });

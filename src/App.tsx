@@ -421,7 +421,7 @@ function App() {
     document.title = PAGE_TITLE;
   }, []);
 
-  const loadDirectory = useCallback(async (handle: string) => {
+  const loadDirectory = useCallback(async (handle: string, refresh = false) => {
     const sequence = requestSequence.current + 1;
     requestSequence.current = sequence;
     activeRequest.current?.abort();
@@ -432,7 +432,7 @@ function App() {
     setError("");
     setSelected(null);
     try {
-      const response = await fetch(`/api/resources?path=${encodeURIComponent(handle)}`, {
+      const response = await fetch(`/api/resources?path=${encodeURIComponent(handle)}${refresh ? "&refresh=1" : ""}`, {
         headers: { Accept: "application/json" },
         signal: controller.signal,
       });
@@ -806,7 +806,7 @@ function App() {
             {siteSettings.headerTitle && <h1>{siteSettings.headerTitle}</h1>}
             {siteSettings.headerSubtitle && <p className="intro-copy">{siteSettings.headerSubtitle}</p>}
           </div>
-          <button className="icon-button" type="button" onClick={() => void loadDirectory(directory)} title="刷新目录" aria-label="刷新目录">
+          <button className="icon-button" type="button" onClick={() => void loadDirectory(directory, true)} title="刷新目录（强制同步最新文件）" aria-label="刷新目录">
             <RefreshCw size={18} className={status === "loading" ? "spin" : ""} />
           </button>
         </section>
@@ -842,7 +842,7 @@ function App() {
                 <strong>{error}</strong>
                 <p>请稍后重试，或联系站点维护者检查云盘连接配置。</p>
               </div>
-              <button className="secondary-button" type="button" onClick={() => void loadDirectory(directory)}>重新读取</button>
+              <button className="secondary-button" type="button" onClick={() => void loadDirectory(directory, true)}>重新读取</button>
             </div>
           )}
 
@@ -951,7 +951,7 @@ function App() {
 
         <div className="bottom-actions">
           <button className="back-button" type="button" onClick={goBack} disabled={directory === "/"}><ArrowLeft size={16} />返回上级</button>
-          <span>目录内容实时同步，下载链接按需生成</span>
+          <span>目录列表缓存约 1 分钟，点「刷新目录」可立即同步最新文件</span>
         </div>
           </>
         )}

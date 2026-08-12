@@ -31,14 +31,15 @@ export const onRequestGet = async ({ request, env }: FunctionContext): Promise<R
     const rules = await readResourceRules(env);
     const displayRootState = await readDisplayRoot(env);
     const providerVersion = await readNumericValue(env, PROVIDER_CONFIG_VERSION_KEY, 0);
+    const forceRefresh = url.searchParams.get("refresh") === "1";
     const target = pathParam !== null
-      ? await resolvePathDirectory(pathParam, configuredEnv, secret, rules, displayRootState.root, providerVersion)
+      ? await resolvePathDirectory(pathParam, configuredEnv, secret, rules, displayRootState.root, providerVersion, forceRefresh)
       : await resolveDirectory(dir, configuredEnv, secret, displayRootState.root);
     if (!target || (target.payload && !(await isResourceVisible(target.payload, configuredEnv, secret, rules, displayRootState.root)))) {
       return invalidResourceResponse();
     }
     const cacheKey = publicCacheKey(target, providerVersion, rules.version, displayRootState.version);
-    const cached = await env.RESOURCE_KV.get(cacheKey);
+    const cached = forceRefresh ? null : await env.RESOURCE_KV.get(cacheKey);
     if (cached) {
       try {
         return jsonResponse(JSON.parse(cached), {
@@ -52,7 +53,7 @@ export const onRequestGet = async ({ request, env }: FunctionContext): Promise<R
     }
 
     await ensureSession(configuredEnv);
-    const items = await listDirectoryItems(configuredEnv, target, providerVersion);
+    const items = await listDirectoryItems(configuredEnv, target, providerVersion, forceRefresh);
     const payload = await buildDirectoryResponse(configuredEnv, target, items, secret, rules.hiddenIds, target.scopeRootId, displayRootState.root?.name || "资源根目录");
     await env.RESOURCE_KV.put(cacheKey, JSON.stringify(payload), { expirationTtl: cacheTtl(configuredEnv) });
     return jsonResponse(payload, {
