@@ -41,6 +41,15 @@ button, a { font: inherit; }
 button { color: inherit; }
 button:focus-visible, a:focus-visible { outline: 3px solid rgba(57, 100, 184, 0.28); outline-offset: 2px; }
 
+/* Keep Artplayer on its built-in styles (do not restyle controls). */
+.art-video-player button,
+.art-video-player a {
+  font: unset;
+  color: unset;
+  outline: unset;
+  -webkit-tap-highlight-color: transparent;
+}
+
 .app-shell { min-height: 100vh; }
 .topbar { border-bottom: 1px solid var(--line); background: rgba(255,255,255,0.84); }
 .topbar-inner { width: min(1180px, calc(100% - 40px)); min-height: 68px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; }
@@ -96,6 +105,34 @@ h1 { max-width: 700px; margin-bottom: 10px; font-size: 39px; line-height: 1.12; 
 .resource-row { min-height: 69px; display: grid; grid-template-columns: minmax(250px, 1fr) 100px 110px 112px 84px; align-items: center; gap: 14px; padding: 0 18px 0 20px; border-bottom: 1px solid #eeeeea; transition: background 120ms ease; }
 .resource-row:last-child { border-bottom: 0; }
 .resource-row:hover, .resource-row.selected { background: #fcf8f5; }
+
+.resource-list-head {
+  min-height: 42px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-muted, #f7f7f3);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 750;
+}
+.resource-list-head:hover { background: var(--surface-muted, #f7f7f3); }
+.sort-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 750;
+  text-align: left;
+}
+.sort-header:hover, .sort-header.active { color: var(--ink); }
+.sort-header.resource-size, .sort-header.resource-date { justify-content: flex-start; }
+.head-label { color: var(--muted); font-size: 12px; font-weight: 750; }
+.head-action-spacer { display: block; width: 100%; }
 .resource-main { min-width: 0; display: flex; align-items: center; gap: 12px; border: 0; padding: 0; color: var(--ink); background: transparent; text-align: left; cursor: pointer; }
 .resource-icon { width: 34px; height: 34px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 6px; }
 .resource-icon.folder { color: #b57831; background: #fbefdc; }
@@ -247,6 +284,12 @@ body::before { background-color: var(--canvas); }
 
 button, a { -webkit-tap-highlight-color: transparent; }
 button:focus-visible, a:focus-visible { outline: 3px solid var(--warm); outline-offset: 4px; }
+
+.art-video-player button:focus-visible,
+.art-video-player a:focus-visible {
+  outline: unset;
+  outline-offset: unset;
+}
 
 .app-shell { min-height: 100vh; }
 
@@ -434,6 +477,45 @@ h1 {
 }
 
 .resource-row:hover, .resource-row.selected { background: var(--accent-soft); }
+
+.resource-list-head {
+  min-height: 44px;
+  border-bottom: 2px solid var(--line);
+  background: var(--surface-raised);
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  font-size: .6875rem;
+  font-weight: 800;
+  letter-spacing: .04em;
+}
+.resource-list-head:hover { background: var(--surface-raised); }
+.sort-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+  text-align: left;
+}
+.sort-header:hover, .sort-header.active { color: var(--accent-dark); }
+.head-label {
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  font-size: .6875rem;
+  font-weight: 800;
+  letter-spacing: .04em;
+}
+.head-action-spacer { display: block; width: 100%; }
+:root[data-theme="dark"] .resource-list-head {
+  background: var(--surface-raised);
+  border-color: var(--line);
+}
 .resource-main { gap: 14px; }
 
 .resource-icon {
@@ -1229,12 +1311,66 @@ h1 {
   }
 }
 
-/* Keep every project surface square, including the split admin layout. */
-.app-shell *,
-.admin-shell *,
-.app-shell *::before,
-.app-shell *::after,
-.admin-shell *::before,
-.admin-shell *::after {
-  border-radius: 0 !important;
+/* Public visitor shell (swtmax visual language) */
+.app-shell .topbar { position: sticky; top: 0; z-index: 60; border-bottom: 1px solid color-mix(in srgb, var(--line) 55%, transparent); background: color-mix(in srgb, var(--surface) 74%, transparent); backdrop-filter: blur(16px) saturate(1.25); -webkit-backdrop-filter: blur(16px) saturate(1.25); }
+.app-shell .main-content { width: min(calc(100% - 48px), 1280px); }
+.app-shell .intro-band { padding: 40px 0 34px; }
+.app-shell .intro-band h1 { font-size: 2.4rem; }
+.app-shell .workspace { overflow: hidden; border: 1px solid color-mix(in srgb, var(--line) 55%, transparent); border-radius: 14px; background: color-mix(in srgb, var(--surface) 88%, transparent); box-shadow: 0 18px 50px #00000029; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+.app-shell .toolbar { border-radius: 14px 14px 0 0; }
+.app-shell .resource-row { transition: background .16s ease; }
+.app-shell .resource-row:hover, .app-shell .resource-row.selected { background: color-mix(in srgb, var(--accent-soft) 65%, transparent); }
+.app-shell .resource-list-head { border-radius: 14px 14px 0 0; }
+.app-shell .detail-panel { border-radius: 14px; background: color-mix(in srgb, var(--surface) 90%, transparent); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+.app-shell .breadcrumb-item button { border-radius: 8px; padding: 5px 9px; }
+.app-shell .breadcrumb-item button:hover { background: color-mix(in srgb, var(--accent-soft) 70%, transparent); }
+:root[data-theme="dark"] .app-shell .workspace,
+:root[data-theme="dark"] .app-shell .detail-panel { background: color-mix(in srgb, var(--surface) 82%, transparent); box-shadow: 0 20px 55px #00000059; }
+
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+/* Visitor video player */
+.ol-video-card { width: 100%; margin: 28px 0 0; padding: 12px; border: 1px solid color-mix(in srgb, var(--line) 80%, transparent); background: color-mix(in srgb, var(--surface) 88%, transparent); box-shadow: 0 12px 40px #0000001f; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); overflow: hidden; }
+.app-shell .ol-video-card { border-radius: 14px !important; }
+.ol-video-card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; padding: 2px 4px 8px; }
+.ol-video-card-title-row { min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 14px; }
+.ol-video-card-title-row strong { font-size: .95rem; font-weight: 800; }
+.ol-video-card-meta { color: var(--muted); font-size: .75rem; }
+.ol-video-card-actions { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+.ol-video-player { position: relative; width: 100%; background: #0b0d0c; }
+.ol-video-status { display: grid; place-items: center; gap: 6px; min-height: 240px; height: 60vh; max-height: calc(100vh - 220px); padding: 24px; color: #d7e0d9; font-size: .9rem; text-align: center; }
+.ol-video-status-error { color: #ffc2a8; }
+.ol-video-status span { display: block; color: #9bad9f; font-size: .8rem; }
+.app-shell .ol-video-player { border-radius: 10px !important; overflow: hidden; }
+.ol-video-player .player-container, .ol-player-box { position: relative; width: 100%; height: 60vh; min-height: 320px; max-height: calc(100vh - 220px); background: #0b0d0c; }
+.player-mount { position: relative; width: 100%; height: 100%; min-height: inherit; }
+.player-mount > div { width: 100%; height: 100%; }
+.player-error { position: absolute; inset: auto 12px 12px; z-index: 40; padding: 10px 12px; color: #fff; background: #b43c28e0; font-size: 13px; }
+.ol-video-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 12px; padding: 0 2px; }
+.ol-video-select-wrap { min-width: 0; flex: 1 1 220px; }
+.ol-video-select { width: 100%; min-height: 40px; border: 1px solid var(--line); padding: 8px 12px; color: var(--ink); background: var(--surface-raised, var(--surface)); font: inherit; font-size: .875rem; }
+.app-shell .ol-video-select { border-radius: 8px !important; }
+.ol-video-auto-next { display: inline-flex; align-items: center; gap: 8px; flex: 0 0 auto; color: var(--ink); font-size: .875rem; cursor: pointer; user-select: none; white-space: nowrap; }
+.ol-video-auto-next input { width: 16px; height: 16px; accent-color: var(--accent); }
+.ol-video-external { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; margin-top: 12px; padding: 4px 0 2px; }
+.ol-video-external-link { display: inline-grid; place-items: center; width: 40px; height: 40px; border: 1px solid transparent; opacity: .92; transition: opacity .12s ease, transform .12s ease; }
+.ol-video-external-link:hover { opacity: 1; transform: translateY(-1px); }
+.ol-video-external-link img { width: 32px; height: 32px; object-fit: contain; }
+.ol-video-filename { margin: 10px 2px 0; overflow: hidden; color: var(--ink); font-size: .875rem; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+.player-hint { margin: 6px 2px 0; color: var(--muted); font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace; font-size: .6875rem; }
+.ol-video-card + .workspace { margin-top: 28px; }
+:root[data-theme="dark"] .ol-video-card { background: color-mix(in srgb, var(--surface) 82%, transparent); box-shadow: 0 16px 48px #00000059; }
+
+@media (max-width: 760px) {
+  .app-shell .main-content { width: min(calc(100% - 28px), 1280px); }
+  .app-shell .intro-band h1 { font-size: 1.9rem; }
+  .ol-video-card { padding: 10px; }
+  .ol-video-card-head { align-items: flex-start; flex-direction: column; }
+  .ol-video-card-actions { width: 100%; justify-content: flex-end; }
+  .ol-video-player .player-container, .ol-player-box { height: 48vh; min-height: 240px; }
+}
+
+@media (max-width: 440px) {
+  .art-control.art-control-previous-button,
+  .art-control.art-control-next-button { display: none; }
 }

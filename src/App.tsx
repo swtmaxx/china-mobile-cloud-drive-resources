@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   AlertCircle,
+  ArrowDown,
   ArrowLeft,
+  ArrowUp,
   ChevronRight,
   Download,
   File,
@@ -13,6 +15,7 @@ import {
   X,
 } from "lucide-react";
 import { defaultSiteSettings, normalizeSiteSettings, PAGE_TITLE, renderMarkdown, SiteSettings, ThemeMode } from "./site-settings";
+import Player, { fileExtension, findDanmakuHandle, isVideoFile } from "./Player";
 
 interface ResourceItem {
   handle: string;
@@ -45,8 +48,80 @@ interface TrailItem {
 }
 
 type ResolvedTheme = "light" | "dark";
+type OrderBy = "name" | "size" | "modified";
 
 const THEME_OVERRIDE_KEY = "resource-hub-theme";
+const SORT_KEY_PREFIX = "resource-hub-dir-sort:";
+
+interface SortState {
+  orderBy: OrderBy;
+  reverse: boolean;
+}
+
+const DEFAULT_SORT: SortState = { orderBy: "name", reverse: false };
+
+function isOrderBy(value: unknown): value is OrderBy {
+  return value === "name" || value === "size" || value === "modified";
+}
+
+function loadSortState(dir: string): SortState {
+  try {
+    const raw = window.localStorage.getItem(`${SORT_KEY_PREFIX}${dir}`);
+    if (!raw) {
+      return DEFAULT_SORT;
+    }
+    const parsed = JSON.parse(raw) as Partial<SortState>;
+    if (!isOrderBy(parsed.orderBy)) {
+      return DEFAULT_SORT;
+    }
+    return { orderBy: parsed.orderBy, reverse: Boolean(parsed.reverse) };
+  } catch {
+    return DEFAULT_SORT;
+  }
+}
+
+function saveSortState(dir: string, state: SortState): void {
+  try {
+    window.localStorage.setItem(`${SORT_KEY_PREFIX}${dir}`, JSON.stringify(state));
+  } catch {
+    // Ignore storage failures in private mode.
+  }
+}
+
+function compareNaturalName(left: string, right: string): number {
+  return left.localeCompare(right, "zh-CN", { numeric: true, sensitivity: "base" });
+}
+
+function compareItems(left: ResourceItem, right: ResourceItem, orderBy: OrderBy, reverse: boolean): number {
+  // Folders stay grouped in front, matching common file-manager UX.
+  if (left.kind !== right.kind) {
+    return left.kind === "folder" ? -1 : 1;
+  }
+
+  let result = 0;
+  switch (orderBy) {
+    case "size":
+      result = (left.size || 0) - (right.size || 0);
+      if (result === 0) {
+        result = compareNaturalName(left.name, right.name);
+      }
+      break;
+    case "modified": {
+      const leftTime = left.updatedAt ? Date.parse(left.updatedAt) : 0;
+      const rightTime = right.updatedAt ? Date.parse(right.updatedAt) : 0;
+      result = (Number.isFinite(leftTime) ? leftTime : 0) - (Number.isFinite(rightTime) ? rightTime : 0);
+      if (result === 0) {
+        result = compareNaturalName(left.name, right.name);
+      }
+      break;
+    }
+    case "name":
+    default:
+      result = compareNaturalName(left.name, right.name);
+      break;
+  }
+  return reverse ? -result : result;
+}
 
 function readThemeOverride(): ResolvedTheme | null {
   try {
@@ -111,6 +186,42 @@ function formatDate(value?: string): string {
 function downloadUrl(handle: string): string {
   return `/api/download?resource=${encodeURIComponent(handle)}`;
 }
+
+/** Ask the API for the 139 CDN link only — media bytes go browser ↔ CDN (not through the Worker). */
+async function resolveDirectUrl(handle: string, signal?: AbortSignal): Promise<string> {
+  const response = await fetch(`${downloadUrl(handle)}&mode=url`, {
+    headers: { Accept: "application/json" },
+    signal,
+  });
+  const payload = await response.json().catch(() => null) as { url?: string; error?: string } | null;
+  if (!response.ok || !payload?.url) {
+    throw new Error(payload?.error || "无法获取直连播放地址");
+  }
+  return payload.url;
+}
+
+const AUTO_NEXT_KEY = "resource-hub-video-auto-next";
+
+function readAutoNext(): boolean {
+  try {
+    const value = window.localStorage.getItem(AUTO_NEXT_KEY);
+    return value === null ? true : value === "true";
+  } catch {
+    return true;
+  }
+}
+
+/** OpenList-style external player shortcuts (Windows-first subset). */
+const EXTERNAL_PLAYERS = [
+  { icon: "potplayer", name: "PotPlayer", scheme: (url: string) => `potplayer://${url}` },
+  { icon: "vlc", name: "VLC", scheme: (url: string) => `vlc://${url}` },
+  { icon: "mpv", name: "mpv", scheme: (url: string) => `mpv://${encodeURIComponent(url)}` },
+  { icon: "nplayer", name: "nPlayer", scheme: (url: string) => `nplayer-${url}` },
+  { icon: "iina", name: "IINA", scheme: (url: string) => `iina://weblink?url=${encodeURIComponent(url)}` },
+  { icon: "infuse", name: "Infuse", scheme: (url: string) => `infuse://x-callback-url/play?url=${encodeURIComponent(url)}` },
+  { icon: "mxplayer", name: "MX Player", scheme: (url: string) => `intent:${url}#Intent;package=com.mxtech.videoplayer.ad;end` },
+  { icon: "android", name: "Android", scheme: (url: string) => `intent:${url}#Intent;type=video/*;end` },
+] as const;
 
 function errorMessage(payload: ApiErrorPayload | null, fallback: string): string {
   switch (payload?.code) {
@@ -194,6 +305,12 @@ function App() {
   const [themeOverride, setThemeOverride] = useState<ResolvedTheme | null>(readThemeOverride);
   const [systemTheme, setSystemTheme] = useState<ResolvedTheme>(readSystemTheme);
   const resolvedTheme = resolveTheme(siteSettings.themeMode, systemTheme, themeOverride);
+  const [sortState, setSortState] = useState<SortState>(() => loadSortState(readDirectory()));
+  const [autoNext, setAutoNext] = useState(readAutoNext);
+  const [directPlayUrl, setDirectPlayUrl] = useState<string>("");
+  const [directDanmakuUrl, setDirectDanmakuUrl] = useState<string | undefined>(undefined);
+  const [directUrlError, setDirectUrlError] = useState<string>("");
+  const [directUrlLoading, setDirectUrlLoading] = useState(false);
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-color-scheme: dark)");
@@ -345,6 +462,20 @@ function App() {
     void loadDirectory(directory);
   }, [directory, loadDirectory]);
 
+  useEffect(() => {
+    setSortState(loadSortState(directory));
+  }, [directory]);
+
+  function toggleSort(column: OrderBy) {
+    setSortState((previous) => {
+      const next: SortState = previous.orderBy === column
+        ? { orderBy: column, reverse: !previous.reverse }
+        : { orderBy: column, reverse: false };
+      saveSortState(directory, next);
+      return next;
+    });
+  }
+
   const currentTrail = useMemo(() => {
     if (directory === "root") {
       return [{ handle: "root", name: rootName }];
@@ -396,13 +527,125 @@ function App() {
     if (!data) {
       return [];
     }
-    return [...data.items].sort((left, right) => {
-      if (left.kind !== right.kind) {
-        return left.kind === "folder" ? -1 : 1;
+    return [...data.items].sort((left, right) => compareItems(left, right, sortState.orderBy, sortState.reverse));
+  }, [data, sortState]);
+
+  function sortHeaderClass(column: OrderBy): string {
+    return `sort-header${sortState.orderBy === column ? " active" : ""}`;
+  }
+
+  function sortIndicator(column: OrderBy) {
+    if (sortState.orderBy !== column) {
+      return null;
+    }
+    return sortState.reverse
+      ? <ArrowDown size={13} strokeWidth={2.4} aria-hidden="true" />
+      : <ArrowUp size={13} strokeWidth={2.4} aria-hidden="true" />;
+  }
+
+  const selectedIsVideo = selected ? isVideoFile(selected.extension, selected.name) : false;
+  const selectedDanmakuHandle = selected && data
+    ? findDanmakuHandle(selected.name, data.items)
+    : undefined;
+
+  const directoryVideos = useMemo(() => {
+    if (!data) {
+      return [] as ResourceItem[];
+    }
+    return sortedItems.filter((item) => item.kind === "file" && isVideoFile(item.extension, item.name));
+  }, [data, sortedItems]);
+
+  const selectedVideoIndex = selected
+    ? directoryVideos.findIndex((item) => item.handle === selected.handle)
+    : -1;
+
+  function selectVideoByHandle(handle: string) {
+    const next = directoryVideos.find((item) => item.handle === handle) || data?.items.find((item) => item.handle === handle);
+    if (next) {
+      setSelected(next);
+    }
+  }
+
+  function playAdjacentVideo(offset: number) {
+    if (selectedVideoIndex < 0) {
+      return;
+    }
+    const next = directoryVideos[selectedVideoIndex + offset];
+    if (next) {
+      setSelected(next);
+    }
+  }
+
+  function handleVideoEnded() {
+    if (!autoNext) {
+      return;
+    }
+    playAdjacentVideo(1);
+  }
+
+  function toggleAutoNext(checked: boolean) {
+    setAutoNext(checked);
+    try {
+      window.localStorage.setItem(AUTO_NEXT_KEY, String(checked));
+    } catch {
+      // Ignore storage failures.
+    }
+  }
+
+  useEffect(() => {
+    if (!selected || !isVideoFile(selected.extension, selected.name)) {
+      setDirectPlayUrl("");
+      setDirectDanmakuUrl(undefined);
+      setDirectUrlError("");
+      setDirectUrlLoading(false);
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    const danmakuHandle = data ? findDanmakuHandle(selected.name, data.items) : undefined;
+    setDirectUrlLoading(true);
+    setDirectUrlError("");
+    setDirectPlayUrl("");
+    setDirectDanmakuUrl(undefined);
+
+    void (async () => {
+      try {
+        const playUrl = await resolveDirectUrl(selected.handle, controller.signal);
+        if (controller.signal.aborted) {
+          return;
+        }
+        setDirectPlayUrl(playUrl);
+
+        if (danmakuHandle) {
+          try {
+            const danmakuUrl = await resolveDirectUrl(danmakuHandle, controller.signal);
+            if (!controller.signal.aborted) {
+              setDirectDanmakuUrl(danmakuUrl);
+            }
+          } catch {
+            // Danmaku is optional; video can still play without it.
+            if (!controller.signal.aborted) {
+              setDirectDanmakuUrl(undefined);
+            }
+          }
+        }
+      } catch (error) {
+        if (controller.signal.aborted) {
+          return;
+        }
+        setDirectUrlError(error instanceof Error ? error.message : "无法获取直连播放地址");
+      } finally {
+        if (!controller.signal.aborted) {
+          setDirectUrlLoading(false);
+        }
       }
-      return left.name.localeCompare(right.name, "zh-CN");
-    });
-  }, [data]);
+    })();
+
+    return () => controller.abort();
+  }, [selected, data]);
+
+  /** External players open the CDN URL when ready; fall back to site download redirect. */
+  const externalPlayUrl = directPlayUrl || (selected ? new URL(downloadUrl(selected.handle), window.location.origin).href : "");
 
   return (
     <div className="app-shell">
@@ -448,6 +691,97 @@ function App() {
 
         <CustomContent markup={siteSettings.customContent} />
 
+        {selected && selectedIsVideo && (
+          <section className="ol-video-card" aria-label="视频播放器">
+            <div className="ol-video-card-head">
+              <div className="ol-video-card-title-row">
+                <strong>视频播放器</strong>
+                <span className="ol-video-card-meta">
+                  {formatSize(selected.size)} · {formatDate(selected.updatedAt)}
+                  {selectedDanmakuHandle ? " · 弹幕" : ""}
+                </span>
+              </div>
+              <div className="ol-video-card-actions">
+                <a className="primary-button" href={downloadUrl(selected.handle)}><Download size={17} />下载</a>
+                <button className="icon-button" type="button" onClick={() => setSelected(null)} title="关闭预览" aria-label="关闭预览"><X size={18} /></button>
+              </div>
+            </div>
+
+            <div className="ol-video-player">
+              {directUrlLoading && (
+                <div className="ol-video-status" aria-live="polite">正在获取直连地址…</div>
+              )}
+              {directUrlError && !directUrlLoading && (
+                <div className="ol-video-status ol-video-status-error" role="alert">
+                  {directUrlError}
+                  <span>可改用下载或外部播放器打开。</span>
+                </div>
+              )}
+              {!directUrlLoading && directPlayUrl && (
+                <Player
+                  url={directPlayUrl}
+                  title={selected.name}
+                  type={fileExtension(selected.name, selected.extension)}
+                  danmakuUrl={directDanmakuUrl}
+                  theme={resolvedTheme}
+                  onEnded={handleVideoEnded}
+                  onPrevious={selectedVideoIndex > 0 ? () => playAdjacentVideo(-1) : undefined}
+                  onNext={selectedVideoIndex >= 0 && selectedVideoIndex < directoryVideos.length - 1 ? () => playAdjacentVideo(1) : undefined}
+                />
+              )}
+            </div>
+
+            <div className="ol-video-toolbar">
+              <label className="ol-video-select-wrap">
+                <span className="sr-only">选择视频</span>
+                <select
+                  className="ol-video-select"
+                  value={selected.handle}
+                  onChange={(event) => selectVideoByHandle(event.target.value)}
+                  aria-label="选择同目录视频"
+                >
+                  {directoryVideos.map((item) => (
+                    <option key={item.handle} value={item.handle}>{item.name}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="ol-video-auto-next">
+                <input
+                  type="checkbox"
+                  checked={autoNext}
+                  onChange={(event) => toggleAutoNext(event.target.checked)}
+                />
+                <span>自动下一集</span>
+              </label>
+            </div>
+
+            <div className="ol-video-external" aria-label="外部播放器">
+              {EXTERNAL_PLAYERS.map((player) => (
+                <a
+                  key={player.icon}
+                  className="ol-video-external-link"
+                  href={player.scheme(externalPlayUrl)}
+                  title={player.name}
+                  aria-label={`用 ${player.name} 打开`}
+                >
+                  <img src={`/images/${player.icon}.webp`} alt="" width={32} height={32} />
+                </a>
+              ))}
+            </div>
+
+            <p className="ol-video-filename" title={selected.name}>{selected.name}</p>
+            <p className="player-hint">
+              播放直连 139 CDN（不经 Cloudflare 中转媒体）。
+              {selectedDanmakuHandle
+                ? directDanmakuUrl
+                  ? " 已挂载同名 XML 弹幕直链。"
+                  : " 同名弹幕直链获取失败时可忽略。"
+                : " 同目录放置同名 `.xml` 可尝试加载弹幕。"}
+              {" "}若浏览器因跨域无法播 FLV，请用下方外部播放器或下载。
+            </p>
+          </section>
+        )}
+
         <section className="workspace" aria-label="资源目录">
           <div className="toolbar">
             <div className="breadcrumbs" aria-label="当前位置">
@@ -484,6 +818,37 @@ function App() {
           {status === "ready" && data && (
             <>
               <div className="resource-list" role="list">
+                <div className="resource-row resource-list-head" role="row">
+                  <button
+                    type="button"
+                    className={sortHeaderClass("name")}
+                    onClick={() => toggleSort("name")}
+                    aria-label={sortState.orderBy === "name" ? (sortState.reverse ? "按名称降序，点击切换升序" : "按名称升序，点击切换降序") : "按名称排序"}
+                  >
+                    <span>名称</span>
+                    {sortIndicator("name")}
+                  </button>
+                  <span className="resource-kind head-label">类型</span>
+                  <button
+                    type="button"
+                    className={`${sortHeaderClass("size")} resource-size`}
+                    onClick={() => toggleSort("size")}
+                    aria-label={sortState.orderBy === "size" ? (sortState.reverse ? "按大小降序，点击切换升序" : "按大小升序，点击切换降序") : "按大小排序"}
+                  >
+                    <span>大小</span>
+                    {sortIndicator("size")}
+                  </button>
+                  <button
+                    type="button"
+                    className={`${sortHeaderClass("modified")} resource-date`}
+                    onClick={() => toggleSort("modified")}
+                    aria-label={sortState.orderBy === "modified" ? (sortState.reverse ? "按修改时间降序，点击切换升序" : "按修改时间升序，点击切换降序") : "按修改时间排序"}
+                  >
+                    <span>修改时间</span>
+                    {sortIndicator("modified")}
+                  </button>
+                  <span className="head-action-spacer" aria-hidden="true" />
+                </div>
                 {sortedItems.map((item) => (
                   <div className={`resource-row ${selected?.handle === item.handle ? "selected" : ""}`} key={item.handle} role="listitem">
                     <button className="resource-main" type="button" onClick={() => item.kind === "folder" ? navigate(item.handle, item.name) : setSelected(item)}>
@@ -521,13 +886,17 @@ function App() {
           )}
         </section>
 
-        {selected && (
+        {selected && !selectedIsVideo && (
           <aside className="detail-panel" aria-label="资源详情">
             <div className="detail-icon"><File size={25} /></div>
             <div className="detail-content">
               <p className="eyebrow">FILE DETAILS</p>
               <h2>{selected.name}</h2>
-              <div className="detail-meta"><span>{formatSize(selected.size)}</span><span>{formatDate(selected.updatedAt)}</span><span>{selected.extension?.toUpperCase() || "文件"}</span></div>
+              <div className="detail-meta">
+                <span>{formatSize(selected.size)}</span>
+                <span>{formatDate(selected.updatedAt)}</span>
+                <span>{selected.extension?.toUpperCase() || "文件"}</span>
+              </div>
             </div>
             <a className="primary-button" href={downloadUrl(selected.handle)}><Download size={17} />下载文件</a>
             <button className="close-button" type="button" onClick={() => setSelected(null)} title="关闭详情" aria-label="关闭详情"><X size={18} /></button>

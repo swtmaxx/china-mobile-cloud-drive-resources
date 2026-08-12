@@ -13,11 +13,14 @@
     "cf:deploy": "npm run build && wrangler pages deploy dist"
   },
   "dependencies": {
+    "artplayer": "^5.4.0",
+    "artplayer-plugin-danmuku": "^5.3.0",
     "crypto-js": "^4.2.0",
     "dompurify": "^3.4.13",
     "fast-xml-parser": "^5.2.5",
     "lucide-react": "^0.468.0",
     "marked": "^18.0.9",
+    "mpegts.js": "^1.8.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },

@@ -6,11 +6,21 @@ import { readResourceRules } from "../../lib/resource-rules";
 import { readDisplayRoot } from "../../lib/display-root";
 import { handleSecret, isResourceVisible, rootId, isInDisplayScope } from "../../lib/resources";
 import { providerEnv } from "../../lib/provider-config";
-import { invalidResourceResponse, publicError } from "../../lib/http";
+import { invalidResourceResponse, jsonResponse, publicError } from "../../lib/http";
 
 interface FunctionContext {
   request: Request;
   env: Env;
+}
+
+function wantsDirectUrl(request: Request): boolean {
+  const url = new URL(request.url);
+  const mode = (url.searchParams.get("mode") || "").toLowerCase();
+  if (mode === "url" || mode === "json" || mode === "direct") {
+    return true;
+  }
+  const accept = request.headers.get("Accept") || "";
+  return accept.includes("application/json") && !accept.includes("text/html");
 }
 
 export const onRequestGet = async ({ request, env }: FunctionContext): Promise<Response> => {
@@ -28,6 +38,23 @@ export const onRequestGet = async ({ request, env }: FunctionContext): Promise<R
     const session = await ensureSession(configuredEnv);
     const client = new Yun139Client(configuredEnv, session.authorization);
     const url = await client.getDownloadUrl(payload.fileId);
+
+    // mode=url: return the CDN link only (no media proxy). Browser then plays/downloads directly from 139.
+    if (wantsDirectUrl(request)) {
+      return jsonResponse(
+        {
+          url,
+          name: payload.name,
+          expiresIn: 900,
+        },
+        {
+          headers: {
+            "Cache-Control": "private, max-age=30",
+          },
+        },
+      );
+    }
+
     return new Response(null, {
       status: 302,
       headers: {
