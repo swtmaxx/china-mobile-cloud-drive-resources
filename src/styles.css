@@ -294,16 +294,16 @@ button:focus-visible, a:focus-visible { outline: 3px solid var(--warm); outline-
 .app-shell { min-height: 100vh; }
 
 .topbar {
-  width: min(calc(100% - 40px), 1160px);
+  width: 100%;
   min-height: 78px;
-  margin: 0 auto;
   border-bottom: 2px solid var(--line);
   background: transparent;
 }
 
 .topbar-inner {
-  width: 100%;
+  width: min(1180px, calc(100% - 40px));
   min-height: 78px;
+  margin: 0 auto;
 }
 
 .brand {
@@ -606,7 +606,7 @@ h1 {
 :root[data-theme="dark"] .error-panel { color: var(--warm); background: #3c2918; }
 
 @media (max-width: 760px) {
-  .topbar, .main-content { width: min(calc(100% - 28px), 1160px); }
+  .topbar-inner, .main-content { width: min(calc(100% - 28px), 1160px); }
   .topbar, .topbar-inner { min-height: 66px; }
   .main-content { padding-bottom: 30px; }
   .topbar-status { font-size: .5625rem; }
