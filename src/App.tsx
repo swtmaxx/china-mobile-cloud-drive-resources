@@ -895,7 +895,15 @@ function App() {
                 </div>
                 {sortedItems.map((item) => (
                   <div className={`resource-row ${selected?.handle === item.handle ? "selected" : ""}`} key={item.handle} role="listitem">
-                    <button className="resource-main" type="button" onClick={() => item.kind === "folder" ? navigate(item.handle, item.name) : setSelected(item)}>
+                    <button className="resource-main" type="button" onClick={() => {
+                        if (item.kind === "folder") {
+                          navigate(item.handle, item.name);
+                        } else if (isVideoFile(item.extension, item.name)) {
+                          navigateWatch(item.handle);
+                        } else {
+                          setSelected(item);
+                        }
+                      }}>
                       <span className={`resource-icon ${item.kind}`}>
                         {item.kind === "folder" ? <Folder size={20} /> : <File size={20} />}
                       </span>
