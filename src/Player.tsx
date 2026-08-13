@@ -269,8 +269,58 @@ export default function Player({
       onEndedRef.current?.();
     });
 
+    // Desktop shortcuts: M mute, F fullscreen, D danmaku toggle, hold -> speed x2.
+    player.hotkey.add("KeyM", function (this: Artplayer) {
+      this.muted = !this.muted;
+    });
+    player.hotkey.add("KeyF", function (this: Artplayer) {
+      this.fullscreen = !this.fullscreen;
+    });
+    player.hotkey.add("KeyD", function (this: Artplayer) {
+      const danmuku = (this.plugins as Record<string, unknown>).artplayerPluginDanmuku as {
+        option?: { visible?: boolean };
+        config?: (option: { visible: boolean }) => unknown;
+      } | undefined;
+      if (!danmuku?.config) {
+        this.notice.show = "无弹幕";
+        return;
+      }
+      const nextVisible = !danmuku.option?.visible;
+      danmuku.config({ visible: nextVisible });
+      this.notice.show = nextVisible ? "弹幕已开启" : "弹幕已关闭";
+    });
+
+    let holdRate: number | null = null;
+    const onHoldKeyDown = (event: KeyboardEvent) => {
+      const tag = (document.activeElement?.tagName || "").toUpperCase();
+      const editable = document.activeElement?.getAttribute("contenteditable");
+      if (tag === "INPUT" || tag === "TEXTAREA" || editable === "true" || event.altKey || event.ctrlKey || event.metaKey) {
+        return;
+      }
+      if (event.code === "ArrowRight" && holdRate === null) {
+        holdRate = player.playbackRate;
+        player.playbackRate = 2;
+        player.notice.show = "倍速播放中（松开恢复）";
+      }
+    };
+    const onHoldKeyUp = (event: KeyboardEvent) => {
+      if (event.code === "ArrowRight" && holdRate !== null) {
+        player.playbackRate = holdRate;
+        holdRate = null;
+        player.notice.show = "已恢复原速";
+      }
+    };
+    document.addEventListener("keydown", onHoldKeyDown);
+    document.addEventListener("keyup", onHoldKeyUp);
+
     return () => {
       destroyed = true;
+      document.removeEventListener("keydown", onHoldKeyDown);
+      document.removeEventListener("keyup", onHoldKeyUp);
+      if (holdRate !== null) {
+        player.playbackRate = holdRate;
+        holdRate = null;
+      }
       try {
         player.destroy(false);
       } catch {
