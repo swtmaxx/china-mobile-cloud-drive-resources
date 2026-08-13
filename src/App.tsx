@@ -687,7 +687,6 @@ function App() {
             <span>{siteSettings.siteName}</span>
           </a>
           <div className="topbar-actions">
-            <div className="topbar-status"><span className="status-dot" />在线资源</div>
             <button
               className="icon-button theme-toggle"
               type="button"
@@ -789,15 +788,6 @@ function App() {
               </label>
             </div>
 
-            <p className="player-hint">
-              播放直连 139 CDN（不经 Cloudflare 中转媒体）。
-              {watchDanmakuHandle
-                ? directDanmakuUrl
-                  ? " 已挂载同名 XML 弹幕直链。"
-                  : " 同名弹幕直链获取失败时可忽略。"
-                : " 同目录放置同名 `.xml` 可尝试加载弹幕。"}
-              {" "}若浏览器因跨域无法播 FLV，请切换到「下载」用外部播放器打开。
-            </p>
           </section>
         ) : (
           <>
@@ -951,7 +941,6 @@ function App() {
 
         <div className="bottom-actions">
           <button className="back-button" type="button" onClick={goBack} disabled={directory === "/"}><ArrowLeft size={16} />返回上级</button>
-          <span>目录列表缓存约 1 分钟，点「刷新目录」可立即同步最新文件</span>
         </div>
           </>
         )}
