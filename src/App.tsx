@@ -25,6 +25,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { defaultSiteSettings, normalizeSiteSettings, PAGE_TITLE, renderMarkdown, SiteSettings, ThemeMode } from "./site-settings";
 import Player, { fileExtension, findDanmakuHandle, isVideoFile } from "./Player";
+import EggParticles from "./egg-particles";
 
 interface ResourceItem {
   handle: string;
@@ -679,6 +680,7 @@ function App() {
 
   return (
     <div className="app-shell">
+      <EggParticles />
       <CustomHead markup={siteSettings.customHead} />
       <header className="topbar">
         <div className="topbar-inner">
