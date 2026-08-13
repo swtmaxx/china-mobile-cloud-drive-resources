@@ -28,7 +28,7 @@ function listResponse(items: Array<{ fileId: string; name: string; type: string;
   return new Response(JSON.stringify({ success: true, data: { items, nextPageCursor: "" } }), { status: 200 });
 }
 
-function mock139(foldersByParent: Record<string, Array<{ fileId: string; name: string; type: string }>>): ReturnType<typeof vi.spyOn> {
+function mock139(foldersByParent: Record<string, Array<{ fileId: string; name: string; type: string }>>) {
   return vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
     const url = String(input);
     if (url.includes("qryRoutePolicy")) {
