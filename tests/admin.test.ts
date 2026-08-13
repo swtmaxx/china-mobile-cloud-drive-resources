@@ -64,7 +64,10 @@ describe("admin session and provider APIs", () => {
     expect((await getProvider(context(new Request("https://example.test/api/admin/provider"), env))).status).toBe(401);
     const expired = await encryptSecret(JSON.stringify({ version: 1, sessionVersion: 1, csrfToken: "expired-csrf-token-value-123456", issuedAt: Date.now() - 10_000, expiresAt: Date.now() - 1 }), env.ADMIN_SESSION_KEY!, "ADMIN_SESSION_KEY");
     const response = await getSession(context(new Request("https://example.test/api/admin/session", { headers: { Cookie: `admin_session=${expired}` } }), env));
-    expect(response.status).toBe(401);
+    expect(response.status).toBe(200);
+    const body = await response.json() as { authenticated?: boolean; setupRequired?: boolean };
+    expect(body.authenticated).toBe(false);
+    expect(body.setupRequired).toBe(true);
   });
 
   it("uses encrypted sessions, CSRF protection, masked provider status and password rotation", async () => {
@@ -75,12 +78,12 @@ describe("admin session and provider APIs", () => {
     const wrong = await postSession(context(new Request(url, { method: "POST", body: JSON.stringify({ password: "wrong-password" }), headers: { "Content-Type": "application/json", "CF-Connecting-IP": "127.0.0.1" } }), env));
     expect(wrong.status).toBe(401);
 
-    const loggedIn = await postSession(context(new Request(url, { method: "POST", body: JSON.stringify({ password: env.ADMIN_PASSWORD }), headers: { "Content-Type": "application/json", "CF-Connecting-IP": "127.0.0.1" } }), env));
+    const loggedIn = await postSession(context(new Request(url, { method: "POST", body: JSON.stringify({ password: env.ADMIN_PASSWORD, setup: true }), headers: { "Content-Type": "application/json", "CF-Connecting-IP": "127.0.0.1" } }), env));
     expect(loggedIn.status).toBe(200);
     expect(loggedIn.headers.get("Set-Cookie")).toContain("HttpOnly");
     expect(loggedIn.headers.get("Set-Cookie")).toContain("Secure");
     expect(loggedIn.headers.get("Set-Cookie")).toContain("SameSite=Lax");
-    expect(values.has(ADMIN_PASSWORD_KEY)).toBe(false);
+    expect(values.has(ADMIN_PASSWORD_KEY)).toBe(true);
     const cookie = cookieFrom(loggedIn);
     const sessionPayload = await loggedIn.json() as { csrfToken: string };
     expect(sessionPayload.csrfToken).toBeTruthy();
@@ -111,15 +114,48 @@ describe("admin session and provider APIs", () => {
     expect(values.get(ADMIN_PASSWORD_KEY)).toMatch(/^\{"hash":"pbkdf2-sha256\$100000\$/);
     const rotatedCookie = cookieFrom(passwordResponse);
     const oldSession = await getSession(context(new Request(url, { headers: { Cookie: cookie } }), env));
-    expect(oldSession.status).toBe(401);
+    expect(oldSession.status).toBe(200);
+    expect((await oldSession.json() as { authenticated?: boolean }).authenticated).toBe(false);
     const newSession = await getSession(context(new Request(url, { headers: { Cookie: rotatedCookie } }), env));
     expect(newSession.status).toBe(200);
 
     const logoutBody = await newSession.json() as { csrfToken: string };
     const loggedOut = await onRequestDelete(context(new Request(url, { method: "DELETE", headers: { Cookie: rotatedCookie, "X-CSRF-Token": logoutBody.csrfToken } }), env));
     expect(loggedOut.status).toBe(200);
-    expect((await getSession(context(new Request(url, { headers: { Cookie: rotatedCookie } }), env))).status).toBe(401);
+    const afterLogout = await getSession(context(new Request(url, { headers: { Cookie: rotatedCookie } }), env));
+    expect(afterLogout.status).toBe(200);
+    expect((await afterLogout.json() as { authenticated?: boolean }).authenticated).toBe(false);
     expect(values.has(ADMIN_PASSWORD_KEY)).toBe(true);
+  });
+
+  it("sets the first password only once", async () => {
+    const { kv } = makeKv();
+    const env = envWith(kv);
+    const url = "https://example.test/api/admin/session";
+
+    const probe = await getSession(context(new Request(url), env));
+    expect((await probe.json() as { setupRequired?: boolean }).setupRequired).toBe(true);
+
+    const weak = await postSession(context(new Request(url, { method: "POST", body: JSON.stringify({ password: "short", setup: true }), headers: { "Content-Type": "application/json" } }), env));
+    expect(weak.status).toBe(400);
+
+    const setup = await postSession(context(new Request(url, { method: "POST", body: JSON.stringify({ password: "first-admin-password", setup: true }), headers: { "Content-Type": "application/json" } }), env));
+    expect(setup.status).toBe(200);
+    expect(setup.headers.get("Set-Cookie")).toContain("HttpOnly");
+    const setupCookie = cookieFrom(setup);
+
+    const probeAfter = await getSession(context(new Request(url), env));
+    expect((await probeAfter.json() as { setupRequired?: boolean }).setupRequired).toBe(false);
+
+    const again = await postSession(context(new Request(url, { method: "POST", body: JSON.stringify({ password: "another-password", setup: true }), headers: { "Content-Type": "application/json" } }), env));
+    expect(again.status).toBe(400);
+
+    const wrongLogin = await postSession(context(new Request(url, { method: "POST", body: JSON.stringify({ password: "wrong" }), headers: { "Content-Type": "application/json", "CF-Connecting-IP": "127.0.0.1" } }), env));
+    expect(wrongLogin.status).toBe(401);
+
+    const correctLogin = await postSession(context(new Request(url, { method: "POST", body: JSON.stringify({ password: "first-admin-password" }), headers: { "Content-Type": "application/json", "CF-Connecting-IP": "127.0.0.1" } }), env));
+    expect(correctLogin.status).toBe(200);
+    expect(cookieFrom(correctLogin)).not.toBe(setupCookie);
   });
 
   it("limits repeated failed login attempts", async () => {
@@ -171,7 +207,7 @@ describe("resource visibility rules", () => {
   it("keeps hidden items visible in the authenticated admin directory", async () => {
     const { kv } = makeKv();
     const env = envWith(kv);
-    const login = await postSession(context(new Request("https://example.test/api/admin/session", { method: "POST", body: JSON.stringify({ password: env.ADMIN_PASSWORD }), headers: { "Content-Type": "application/json" } }), env));
+    const login = await postSession(context(new Request("https://example.test/api/admin/session", { method: "POST", body: JSON.stringify({ password: env.ADMIN_PASSWORD, setup: true }), headers: { "Content-Type": "application/json" } }), env));
     const cookie = cookieFrom(login);
     const body = await login.json() as { csrfToken: string };
     const folderHandle = await createResourceHandle({ version: 2, kind: "folder", fileId: "folder-admin-id", rootId: "/", name: "Hidden Folder", parentHandle: "root", expiresAt: Date.now() + 60_000 }, KEY_A);
@@ -197,7 +233,7 @@ describe("resource visibility rules", () => {
   it("uses a selected folder as the public display root and invalidates old scoped handles", async () => {
     const { kv, values } = makeKv();
     const env = envWith(kv);
-    const login = await postSession(context(new Request("https://example.test/api/admin/session", { method: "POST", body: JSON.stringify({ password: env.ADMIN_PASSWORD }), headers: { "Content-Type": "application/json" } }), env));
+    const login = await postSession(context(new Request("https://example.test/api/admin/session", { method: "POST", body: JSON.stringify({ password: env.ADMIN_PASSWORD, setup: true }), headers: { "Content-Type": "application/json" } }), env));
     const cookie = cookieFrom(login);
     const loginBody = await login.json() as { csrfToken: string };
     const displayRootHandle = await createResourceHandle({ version: 2, kind: "folder", fileId: "display-root-id", rootId: "/", name: "公开目录", parentHandle: "root", scopeRootId: "/", expiresAt: Date.now() + 60_000 }, KEY_A);
@@ -327,7 +363,7 @@ describe("site personalization APIs", () => {
     const env = envWith(kv);
     const login = await postSession(context(new Request("https://example.test/api/admin/session", {
       method: "POST",
-      body: JSON.stringify({ password: env.ADMIN_PASSWORD }),
+      body: JSON.stringify({ password: env.ADMIN_PASSWORD, setup: true }),
       headers: { "Content-Type": "application/json" },
     }), env));
     const cookie = cookieFrom(login);
@@ -386,7 +422,7 @@ describe("site personalization APIs", () => {
     const env = envWith(kv);
     const login = await postSession(context(new Request("https://example.test/api/admin/session", {
       method: "POST",
-      body: JSON.stringify({ password: env.ADMIN_PASSWORD }),
+      body: JSON.stringify({ password: env.ADMIN_PASSWORD, setup: true }),
       headers: { "Content-Type": "application/json" },
     }), env));
     const cookie = cookieFrom(login);

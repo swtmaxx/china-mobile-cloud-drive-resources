@@ -34,6 +34,11 @@ interface SessionInfo {
   expiresAt: number;
 }
 
+interface SessionCheck {
+  authenticated?: boolean;
+  setupRequired?: boolean;
+}
+
 interface ProviderStatus {
   usernameMasked?: string;
   usernameConfigured: boolean;
@@ -115,8 +120,9 @@ async function responsePayload<T>(response: Response): Promise<T | null> {
   return response.json().catch(() => null) as Promise<T | null>;
 }
 
-function AdminLogin({ onLoggedIn }: { onLoggedIn: (session: SessionInfo) => void }) {
+function AdminLogin({ onLoggedIn, setupRequired }: { onLoggedIn: (session: SessionInfo) => void; setupRequired: boolean }) {
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [error, setError] = useState("");
 
@@ -124,11 +130,16 @@ function AdminLogin({ onLoggedIn }: { onLoggedIn: (session: SessionInfo) => void
     event.preventDefault();
     setStatus("loading");
     setError("");
+    if (setupRequired && password !== confirmPassword) {
+      setStatus("error");
+      setError("两次输入的密码不一致。");
+      return;
+    }
     try {
       const response = await fetch("/api/admin/session", {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ password, ...(setupRequired ? { setup: true } : {}) }),
       });
       const payload = await responsePayload<SessionInfo & ApiErrorPayload>(response);
       if (!response.ok || !payload?.csrfToken || !payload.expiresAt) {
@@ -147,17 +158,36 @@ function AdminLogin({ onLoggedIn }: { onLoggedIn: (session: SessionInfo) => void
       <main className="admin-login-panel">
         <div className="admin-login-mark"><HardDriveDownload size={25} /></div>
         <p className="admin-kicker">PRIVATE ADMIN</p>
-        <h1>后台登录</h1>
-        <p className="admin-muted">资源分发站管理入口</p>
+        <h1>{setupRequired ? "设置管理员密码" : "后台登录"}</h1>
+        <p className="admin-muted">{setupRequired ? "首次进入后台，请设置一个管理员密码" : "资源分发站管理入口"}</p>
         <form className="admin-form" onSubmit={submit}>
           <label className="admin-field">
-            <span>管理员密码</span>
-            <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" autoFocus required />
+            <span>{setupRequired ? "新密码（8-256 字符）" : "管理员密码"}</span>
+            <input
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              autoComplete={setupRequired ? "new-password" : "current-password"}
+              autoFocus
+              required
+            />
           </label>
+          {setupRequired && (
+            <label className="admin-field">
+              <span>确认密码</span>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+                autoComplete="new-password"
+                required
+              />
+            </label>
+          )}
           {error && <div className="admin-alert error" role="alert"><AlertCircle size={17} />{error}</div>}
           <button className="admin-button primary wide" type="submit" disabled={status === "loading"}>
             {status === "loading" ? <RefreshCw size={17} className="spin" /> : <LogIn size={17} />}
-            登录后台
+            {setupRequired ? "设置并进入后台" : "登录后台"}
           </button>
         </form>
       </main>
@@ -168,6 +198,7 @@ function AdminLogin({ onLoggedIn }: { onLoggedIn: (session: SessionInfo) => void
 function AdminApp() {
   const [session, setSession] = useState<SessionInfo | null>(null);
   const [authStatus, setAuthStatus] = useState<"loading" | "login" | "ready">("loading");
+  const [setupRequired, setSetupRequired] = useState(false);
   const [notice, setNotice] = useState<{ kind: "success" | "error"; text: string } | null>(null);
   const [provider, setProvider] = useState<ProviderStatus | null>(null);
   const [providerValues, setProviderValues] = useState({ username: "", authorization: "", password: "", mailCookies: "", type: "personal_new", rootId: "/" });
@@ -270,6 +301,7 @@ function AdminApp() {
           setSession({ csrfToken: payload.csrfToken, expiresAt: payload.expiresAt });
           setAuthStatus("ready");
         } else {
+          setSetupRequired(Boolean((payload as SessionCheck | null)?.setupRequired));
           setAuthStatus("login");
         }
       })
@@ -479,7 +511,7 @@ function AdminApp() {
     return <div className="admin-shell admin-loading"><RefreshCw size={23} className="spin" />正在检查后台会话</div>;
   }
   if (authStatus === "login" || !session) {
-    return <AdminLogin onLoggedIn={loginComplete} />;
+    return <AdminLogin onLoggedIn={loginComplete} setupRequired={setupRequired} />;
   }
 
   return (

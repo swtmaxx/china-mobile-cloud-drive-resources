@@ -233,12 +233,30 @@ async function passwordMatches(env: Env, password: string): Promise<{ matched: b
   if (stored) {
     return { matched: await verifyPassword(password, stored.hash), stored: true, legacyEncrypted: stored.legacyEncrypted };
   }
-  const initialPassword = env.ADMIN_PASSWORD;
-  return { matched: Boolean(initialPassword && equalPasswordValues(password, initialPassword)), stored: false, legacyEncrypted: false };
+  return { matched: false, stored: false, legacyEncrypted: false };
 }
 
 export async function hasAdminPassword(env: Env): Promise<boolean> {
-  return Boolean((await readPasswordRecord(env)) || env.ADMIN_PASSWORD);
+  return Boolean(await readPasswordRecord(env));
+}
+
+export async function setupAdminPassword(env: Env, request: Request, newPassword: string): Promise<{ cookie: string; csrfToken: string; expiresAt: number }> {
+  if (await hasAdminPassword(env)) {
+    throw new AdminError("管理员密码已设置，请直接登录。", 400, "password_already_set");
+  }
+  if (!isAcceptablePassword(newPassword)) {
+    throw new AdminError("密码长度应为 8 到 256 个字符。", 400, "password_invalid");
+  }
+  if (!sessionKey(env)) {
+    throw new AdminError("ADMIN_SESSION_KEY is not configured", 503, "admin_misconfigured");
+  }
+  await writePasswordHash(env, newPassword);
+  const created = await createAdminSession(env);
+  return {
+    cookie: adminCookieHeader(request, created.value),
+    csrfToken: created.session.csrfToken,
+    expiresAt: created.session.expiresAt,
+  };
 }
 
 export async function loginAdmin(env: Env, request: Request, password: string): Promise<{ cookie: string; csrfToken: string; expiresAt: number }> {

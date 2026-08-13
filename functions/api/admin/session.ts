@@ -3,10 +3,13 @@ import { jsonResponse } from "../../../lib/http";
 import {
   adminCookieHeader,
   clearAdminCookie,
+  hasAdminPassword,
   invalidateAdminSessions,
   loginAdmin,
+  readAdminSession,
   requireAdminSession,
   requireCsrf,
+  setupAdminPassword,
 } from "../../../lib/admin/auth";
 import { AdminError, adminErrorResponse } from "../../../lib/admin/errors";
 import { readJsonObject, requiredString } from "../../../lib/admin/request";
@@ -26,8 +29,11 @@ function responseForError(error: unknown): Response {
 
 export const onRequestGet = async ({ request, env }: FunctionContext): Promise<Response> => {
   try {
-    const session = await requireAdminSession(request, env);
-    return jsonResponse({ authenticated: true, csrfToken: session.csrfToken, expiresAt: session.expiresAt });
+    const session = await readAdminSession(request, env);
+    if (session) {
+      return jsonResponse({ authenticated: true, csrfToken: session.csrfToken, expiresAt: session.expiresAt });
+    }
+    return jsonResponse({ authenticated: false, setupRequired: !(await hasAdminPassword(env)) });
   } catch (error) {
     return responseForError(error);
   }
@@ -37,7 +43,9 @@ export const onRequestPost = async ({ request, env }: FunctionContext): Promise<
   try {
     const body = await readJsonObject(request);
     const password = requiredString(body.password, "密码", 256);
-    const result = await loginAdmin(env, request, password);
+    const result = body.setup === true
+      ? await setupAdminPassword(env, request, password)
+      : await loginAdmin(env, request, password);
     return jsonResponse({ authenticated: true, csrfToken: result.csrfToken, expiresAt: result.expiresAt }, {
       headers: { "Set-Cookie": result.cookie },
     });
