@@ -1314,7 +1314,6 @@ h1 {
 /* Public visitor shell (swtmax visual language) */
 .app-shell .topbar { position: sticky; top: 0; z-index: 60; border-bottom: 1px solid color-mix(in srgb, var(--line) 55%, transparent); background: color-mix(in srgb, var(--surface) 74%, transparent); backdrop-filter: blur(16px) saturate(1.25); -webkit-backdrop-filter: blur(16px) saturate(1.25); }
 .app-shell .main-content { width: min(calc(100% - 48px), 1280px); }
-.app-shell .intro-band { display: flex; justify-content: flex-end; align-items: center; padding: 20px 0 16px; }
 .app-shell .workspace { overflow: hidden; border: 1px solid color-mix(in srgb, var(--line) 55%, transparent); background: color-mix(in srgb, var(--surface) 88%, transparent); box-shadow: 0 18px 50px #00000029; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
 .app-shell .resource-row { transition: background .16s ease; }
 .app-shell .resource-row:hover, .app-shell .resource-row.selected { background: color-mix(in srgb, var(--accent-soft) 65%, transparent); }

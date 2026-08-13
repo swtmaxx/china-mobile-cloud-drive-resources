@@ -687,6 +687,9 @@ function App() {
             <span>{siteSettings.siteName}</span>
           </a>
           <div className="topbar-actions">
+            <button className="icon-button" type="button" onClick={() => void loadDirectory(directory, true)} title="刷新目录（强制同步最新文件）" aria-label="刷新目录">
+              <RefreshCw size={18} className={status === "loading" ? "spin" : ""} />
+            </button>
             <button
               className="icon-button theme-toggle"
               type="button"
@@ -791,12 +794,6 @@ function App() {
           </section>
         ) : (
           <>
-        <section className="intro-band">
-          <button className="icon-button" type="button" onClick={() => void loadDirectory(directory, true)} title="刷新目录（强制同步最新文件）" aria-label="刷新目录">
-            <RefreshCw size={18} className={status === "loading" ? "spin" : ""} />
-          </button>
-        </section>
-
         {siteSettings.markdown.trim() && (
           <article
             className="markdown-content"
