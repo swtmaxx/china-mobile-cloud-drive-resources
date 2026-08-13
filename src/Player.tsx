@@ -112,6 +112,8 @@ export default function Player({
       mutex: true,
       fullscreen: true,
       fullscreenWeb: true,
+      // Mobile: lock to landscape when entering fullscreen.
+      autoOrientation: true,
       // Keep the full bottom bar visible; mini bar only appears while idle if enabled.
       miniProgressBar: false,
       playsInline: true,
