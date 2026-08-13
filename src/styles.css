@@ -388,7 +388,7 @@ h1 {
 .markdown-content {
   min-width: 0;
   margin: 0;
-  padding: 62px 0;
+  padding: 28px 0;
   border-bottom: 2px solid var(--line);
   color: var(--ink);
   font-size: .9375rem;
@@ -419,7 +419,7 @@ h1 {
 .custom-content {
   min-width: 0;
   margin: 0;
-  padding: 62px 0;
+  padding: 28px 0;
   border-bottom: 2px solid var(--line);
   overflow-wrap: anywhere;
 }
@@ -450,7 +450,7 @@ h1 {
 
 .workspace {
   overflow: hidden;
-  margin-top: 62px;
+  margin-top: 28px;
   border: 2px solid var(--line-strong);
   border-radius: 0;
   background: var(--surface);
@@ -613,8 +613,8 @@ h1 {
   .intro-band { grid-template-columns: minmax(0, 1fr) auto; align-items: start; padding: 52px 0 58px; }
   h1 { font-size: 2.5rem; }
   .intro-copy { font-size: 1rem; }
-  .markdown-content, .custom-content { padding: 48px 0; }
-  .workspace { margin-top: 48px; }
+  .markdown-content, .custom-content { padding: 24px 0; }
+  .workspace { margin-top: 24px; }
   .resource-row { grid-template-columns: minmax(0, 1fr) 72px 34px; gap: 10px; padding: 12px 14px; }
   .resource-kind, .resource-date { display: none; }
   .resource-size { text-align: right; }
@@ -1314,7 +1314,7 @@ h1 {
 /* Public visitor shell (swtmax visual language) */
 .app-shell .topbar { position: sticky; top: 0; z-index: 60; border-bottom: 1px solid color-mix(in srgb, var(--line) 55%, transparent); background: color-mix(in srgb, var(--surface) 74%, transparent); backdrop-filter: blur(16px) saturate(1.25); -webkit-backdrop-filter: blur(16px) saturate(1.25); }
 .app-shell .main-content { width: min(calc(100% - 48px), 1280px); }
-.app-shell .intro-band { padding: 40px 0 34px; }
+.app-shell .intro-band { padding: 40px 0 24px; }
 .app-shell .intro-band h1 { font-size: 2.4rem; }
 .app-shell .workspace { overflow: hidden; border: 1px solid color-mix(in srgb, var(--line) 55%, transparent); background: color-mix(in srgb, var(--surface) 88%, transparent); box-shadow: 0 18px 50px #00000029; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
 .app-shell .resource-row { transition: background .16s ease; }
