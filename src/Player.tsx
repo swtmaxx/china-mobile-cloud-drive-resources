@@ -105,7 +105,7 @@ export default function Player({
       flip: true,
       playbackRate: true,
       aspectRatio: true,
-      screenshot: true,
+      screenshot: false,
       setting: true,
       hotkey: true,
       pip: true,
