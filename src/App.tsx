@@ -792,10 +792,6 @@ function App() {
         ) : (
           <>
         <section className="intro-band">
-          <div>
-            {siteSettings.headerTitle && <h1>{siteSettings.headerTitle}</h1>}
-            {siteSettings.headerSubtitle && <p className="intro-copy">{siteSettings.headerSubtitle}</p>}
-          </div>
           <button className="icon-button" type="button" onClick={() => void loadDirectory(directory, true)} title="刷新目录（强制同步最新文件）" aria-label="刷新目录">
             <RefreshCw size={18} className={status === "loading" ? "spin" : ""} />
           </button>
